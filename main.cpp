@@ -2,10 +2,10 @@
 
 /*
 search engine
-kaggle dataset handler - indexer
-query engine
-indexer
-ui
+    indexer
+        kaggle dataset handler - indexer
+    query engine
+    ui
 */
 
 int main(int argc, char** argv){
