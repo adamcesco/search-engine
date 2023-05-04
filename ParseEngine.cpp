@@ -71,38 +71,33 @@ void search_engine::KaggleFinanceParseEngine::Parse(std::string file_path, const
 
     this->unformatted_database = std::move(std::vector<std::pair<std::string, std::unordered_map<std::string, int64_t>>>(files_.size()));  // uuid -> {word -> appearance count}
     pthread_t thread_array[this->thread_count];
-    args* arg_array[this->thread_count];
-    size_t split = files_.size() / this->thread_count;
+    args arg_array[this->thread_count];
+    size_t proportion = files_.size() / this->thread_count;
+    size_t prev = 0;
     for (int64_t i = 0; i < this->thread_count - 1; i++) {
-        arg_array[i] = new args({
+        arg_array[i] = {
             .obj_ptr = this,
-            .start = i * split,
-            .end = (i + 1) * split,
-        });
-        pthread_create(thread_array + i, NULL, this->ThreadParser, (void*)arg_array[i]);
+            .start = prev,
+            .end = prev + proportion,
+        };
+        pthread_create(thread_array + i, NULL, this->ThreadParser, (void*)(arg_array + i));
+        prev = prev + proportion;
     }
-    args* arguments = new args({
+    arg_array[this->thread_count - 1] = {
         .obj_ptr = this,
-        .start = (this->thread_count - 1) * split,
+        .start = prev,
         .end = files_.size(),
-    });
-    pthread_create(thread_array + thread_count - 1, NULL, this->ThreadParser, (void*)arguments);
+    };
+    pthread_create(thread_array + thread_count - 1, NULL, this->ThreadParser, (void*)(arg_array + this->thread_count - 1));
 
     for (int64_t i = 0; i < this->thread_count; i++) {
         pthread_join(thread_array[i], NULL);
     }
-    for (int64_t i = 0; i < this->thread_count; i++) {
-        delete arg_array[i];
-    }
 
+    // todo: add multiple threading to the following function call
     // this->database_.text_index = std::move(this->MergeIntoDatabase(0, files_.size(), unformatted_database));
 
-    int counter = 0;
     for (auto&& outer_element : this->unformatted_database) {
-        if (counter % 10000 == 0) {
-            std::cout << counter << std::endl;
-        }
-
         std::unordered_map<std::string, parse_util::WordStatisticList> word_map;
         for (auto&& inner_element : outer_element.second) {
             word_map[inner_element.first].PushBack(outer_element.first, inner_element.second);
@@ -111,7 +106,6 @@ void search_engine::KaggleFinanceParseEngine::Parse(std::string file_path, const
         for (auto&& word_element : word_map) {
             database_.text_index[word_element.first].CatGive(word_element.second);
         }
-        counter++;
     }
 
     // prints out the data within the text index
@@ -123,7 +117,7 @@ void search_engine::KaggleFinanceParseEngine::Parse(std::string file_path, const
     // }
 }
 
-void search_engine::KaggleFinanceParseEngine::ParseSingleArticle(const size_t i) {
+void search_engine::KaggleFinanceParseEngine::ParseSingleArticle(const size_t i) {  // todo: fill all other data within `database_`
     std::ifstream input(files_[i]);
     if (input.is_open() == false) {
         std::cerr << "cannot open file: " << files_[i].string() << std::endl;
@@ -142,9 +136,9 @@ void search_engine::KaggleFinanceParseEngine::ParseSingleArticle(const size_t i)
     char* save_ptr;
     char* token = strtok_r(text.data(), delimeters, &save_ptr);
     while (token != NULL) {
-        // cleaning token
+        // todo: clean token
 
-        auto iter = word_map.emplace(std::string(token), 0);
+        auto iter = word_map.emplace(token, 0);
         iter.first->second++;
 
         token = strtok_r(NULL, delimeters, &save_ptr);
