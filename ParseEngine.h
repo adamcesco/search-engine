@@ -92,15 +92,24 @@ class ParseEngine {
 // the `KaggleFinanceParseEngine` class will be used to parse the data found at https://www.kaggle.com/datasets/jeet2016/us-financial-news-articles
 class KaggleFinanceParseEngine : public parse_util::ParseEngine {
    public:
+    KaggleFinanceParseEngine(int64_t thread_amount) : thread_count(thread_amount) {}
     void Parse(std::string file_path, const std::unordered_set<std::string>* stop_words) override;
     inline const parse_util::RunTimeDataBase* GetRunTimeDataBase() const override { return &database_; };
 
    private:
-    void ParseSingleArticle(const size_t i, std::vector<std::pair<std::string, std::unordered_map<std::string, int64_t>>>& unformatted_database);
-    std::unordered_map<std::string, parse_util::WordStatisticList> MergeIntoDatabase(const size_t low, const size_t high, std::vector<std::pair<std::string, std::unordered_map<std::string, int64_t>>>& unformatted_database);
+    struct args {
+        KaggleFinanceParseEngine* obj_ptr;
+        size_t start;
+        size_t end;
+    };
+    void ParseSingleArticle(const size_t i);
+    static void* ThreadParser(void* _arg);
+    std::unordered_map<std::string, parse_util::WordStatisticList> MergeIntoDatabase(const size_t low, const size_t high);
 
     parse_util::RunTimeDataBase database_;
+    std::vector<std::pair<std::string, std::unordered_map<std::string, int64_t>>> unformatted_database;
     std::vector<std::filesystem::__cxx11::path> files_;
+    int64_t thread_count;
 };
 
 }  // namespace search_engine
