@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 include(CTest)
 enable_testing()
 
-add_executable(search-engine-project main.cpp SearchEngine.cpp)
+add_executable(search-engine-project main.cpp SearchEngine.cpp ParseEngine.cpp)
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})

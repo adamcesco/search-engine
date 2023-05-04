@@ -1,13 +1,11 @@
 #include <iostream>
 
+#include "SearchEngine.h"
 /*
-search engine
-    indexer
-        kaggle dataset handler - indexer
-    query engine
-    ui
+note that your kaggle parser does not support unicode characters
 */
 
-int main(int argc, char** argv){
-    std::cout << "hello world" << std::endl;
+int main(int argc, char** argv) {
+    search_engine::KaggleFinanceParseEngine parseEngine;
+    parseEngine.Parse("../sample_kaggle_finance_data", NULL);
 }
