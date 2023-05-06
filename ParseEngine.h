@@ -22,8 +22,8 @@ class WordStatisticList {
         ListNode* next = nullptr;
         ListNode* prev = nullptr;
         ListNode() = default;
-        explicit ListNode(std::string id, int64_t x) : uuid(std::move(id)), count(std::move(x)) {}
-        ListNode(std::string id, int64_t x, ListNode* next, ListNode* prev) : uuid(std::move(id)), count(std::move(x)), next(std::move(next)), prev(std::move(prev)) {}
+        explicit ListNode(std::string id, int64_t x) : uuid(std::move(id)), count(x) {}
+        ListNode(std::string id, int64_t x, ListNode* next, ListNode* prev) : uuid(std::move(id)), count(x), next(next), prev(prev) {}
     };
 
     // constructor
@@ -104,7 +104,6 @@ class KaggleFinanceParseEngine : public parse_util::ParseEngine {
     };
     void ParseSingleArticle(const size_t i);
     static void* ThreadParser(void* _arg);
-    std::unordered_map<std::string, parse_util::WordStatisticList> MergeIntoDatabase(const size_t low, const size_t high);
 
     parse_util::RunTimeDataBase database_;
     std::vector<std::pair<std::string, std::unordered_map<std::string, int64_t>>> unformatted_database_;

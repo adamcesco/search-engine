@@ -16,7 +16,11 @@ search_engine::parse_util::WordStatisticList::WordStatisticList(const search_eng
     this->dummy_->next = this->dummy_;
     ListNode* iter = list.dummy_->next;
     while (iter != list.dummy_) {
-        this->PushBack(iter->uuid, iter->count);
+        ListNode* node = new ListNode(iter->uuid, iter->count);
+        this->dummy_->prev->next = node;
+        node->prev = this->dummy_->prev;
+        this->dummy_->prev = node;
+        node->next = this->dummy_;
         iter = iter->next;
     }
 }
@@ -41,7 +45,12 @@ search_engine::parse_util::WordStatisticList& search_engine::parse_util::WordSta
         this->dummy_->next = this->dummy_;
         ListNode* iter = list.dummy_->next;
         while (iter != list.dummy_) {
-            this->PushBack(iter->uuid, iter->count);
+            ListNode* node = new ListNode(iter->uuid, iter->count);
+            this->dummy_->prev->next = node;
+            node->prev = this->dummy_->prev;
+            this->dummy_->prev = node;
+            node->next = this->dummy_;
+
             iter = iter->next;
         }
     }
@@ -62,7 +71,6 @@ search_engine::parse_util::WordStatisticList::~WordStatisticList() {
 
 void search_engine::KaggleFinanceParseEngine::Parse(std::string file_path, const std::unordered_set<std::string>* stop_words) {
     auto it = std::filesystem::recursive_directory_iterator(file_path);
-
     for (const auto& entry : it) {
         if (entry.is_regular_file() && entry.path().extension().string() == ".json") {
             this->files_.push_back(entry.path());
@@ -70,7 +78,7 @@ void search_engine::KaggleFinanceParseEngine::Parse(std::string file_path, const
     }
 
     this->unformatted_database_ = std::move(std::vector<std::pair<std::string, std::unordered_map<std::string, int64_t>>>(files_.size()));  // uuid -> {word -> appearance count}
-    pthread_t thread_array[this->thread_count_];
+    pthread_t parsing_thread_array[this->thread_count_];
     args arg_array[this->thread_count_];
     size_t proportion = files_.size() / this->thread_count_;
     size_t prev = 0;
@@ -80,7 +88,7 @@ void search_engine::KaggleFinanceParseEngine::Parse(std::string file_path, const
             .start = prev,
             .end = prev + proportion,
         };
-        pthread_create(thread_array + i, NULL, this->ThreadParser, (void*)(arg_array + i));
+        pthread_create(parsing_thread_array + i, NULL, this->ThreadParser, (void*)(arg_array + i));
         prev = prev + proportion;
     }
     arg_array[this->thread_count_ - 1] = {
@@ -88,18 +96,14 @@ void search_engine::KaggleFinanceParseEngine::Parse(std::string file_path, const
         .start = prev,
         .end = files_.size(),
     };
-    pthread_create(thread_array + thread_count_ - 1, NULL, this->ThreadParser, (void*)(arg_array + this->thread_count_ - 1));
-
+    pthread_create(parsing_thread_array + thread_count_ - 1, NULL, this->ThreadParser, (void*)(arg_array + this->thread_count_ - 1));
     for (int64_t i = 0; i < this->thread_count_; i++) {
-        pthread_join(thread_array[i], NULL);
+        pthread_join(parsing_thread_array[i], NULL);
     }
 
-    // todo: add multithreading to the following function call
-    // this->database_.text_index = std::move(this->MergeIntoDatabase(0, files_.size(), unformatted_database_));
-
-    for (auto&& outer_element : this->unformatted_database_) {
+    for (auto&& outer_element : unformatted_database_) {
         for (auto&& inner_element : outer_element.second) {
-            database_.text_index[inner_element.first].PushBack(outer_element.first, inner_element.second);
+            database_.text_index[std::move(inner_element.first)].PushBack(outer_element.first, inner_element.second);
         }
     }
 
@@ -148,29 +152,4 @@ void* search_engine::KaggleFinanceParseEngine::ThreadParser(void* _arg) {
     }
 
     return nullptr;
-}
-
-std::unordered_map<std::string, search_engine::parse_util::WordStatisticList> search_engine::KaggleFinanceParseEngine::MergeIntoDatabase(const size_t low, const size_t high) {
-    if (low > high) {
-        return {};
-    } else if (low == high) {
-        const size_t i = low;
-        std::unordered_map<std::string, parse_util::WordStatisticList> word_map;
-        for (auto&& inner_element : unformatted_database_[i].second) {
-            word_map[inner_element.first].PushBack(unformatted_database_[i].first, inner_element.second);
-        }
-        return word_map;
-    }
-
-    size_t mid = (low + high) / 2;
-    std::unordered_map<std::string, parse_util::WordStatisticList> word_map_left = std::move(this->MergeIntoDatabase(low, mid));
-    std::unordered_map<std::string, parse_util::WordStatisticList> word_map_right = std::move(this->MergeIntoDatabase(mid + 1, high));
-
-    for (auto&& right_map_element : word_map_right) {
-        auto iter = word_map_left.emplace(right_map_element.first, right_map_element.second);
-        if (iter.second == false) {
-            iter.first->second.CatGive(right_map_element.second);
-        }
-    }
-    return word_map_left;
 }
