@@ -92,7 +92,7 @@ class ParseEngine {
 // the `KaggleFinanceParseEngine` class will be used to parse the data found at https://www.kaggle.com/datasets/jeet2016/us-financial-news-articles
 class KaggleFinanceParseEngine : public parse_util::ParseEngine {
    public:
-    KaggleFinanceParseEngine(int64_t thread_amount) : thread_count(thread_amount) {}
+    KaggleFinanceParseEngine(int64_t thread_amount) : thread_count_(thread_amount) {}
     void Parse(std::string file_path, const std::unordered_set<std::string>* stop_words) override;
     inline const parse_util::RunTimeDataBase* GetRunTimeDataBase() const override { return &database_; };
 
@@ -107,9 +107,9 @@ class KaggleFinanceParseEngine : public parse_util::ParseEngine {
     std::unordered_map<std::string, parse_util::WordStatisticList> MergeIntoDatabase(const size_t low, const size_t high);
 
     parse_util::RunTimeDataBase database_;
-    std::vector<std::pair<std::string, std::unordered_map<std::string, int64_t>>> unformatted_database;
+    std::vector<std::pair<std::string, std::unordered_map<std::string, int64_t>>> unformatted_database_;
     std::vector<std::filesystem::__cxx11::path> files_;
-    int64_t thread_count;
+    int64_t thread_count_;
 };
 
 }  // namespace search_engine

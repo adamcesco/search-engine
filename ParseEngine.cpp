@@ -69,12 +69,12 @@ void search_engine::KaggleFinanceParseEngine::Parse(std::string file_path, const
         }
     }
 
-    this->unformatted_database = std::move(std::vector<std::pair<std::string, std::unordered_map<std::string, int64_t>>>(files_.size()));  // uuid -> {word -> appearance count}
-    pthread_t thread_array[this->thread_count];
-    args arg_array[this->thread_count];
-    size_t proportion = files_.size() / this->thread_count;
+    this->unformatted_database_ = std::move(std::vector<std::pair<std::string, std::unordered_map<std::string, int64_t>>>(files_.size()));  // uuid -> {word -> appearance count}
+    pthread_t thread_array[this->thread_count_];
+    args arg_array[this->thread_count_];
+    size_t proportion = files_.size() / this->thread_count_;
     size_t prev = 0;
-    for (int64_t i = 0; i < this->thread_count - 1; i++) {
+    for (int64_t i = 0; i < this->thread_count_ - 1; i++) {
         arg_array[i] = {
             .obj_ptr = this,
             .start = prev,
@@ -83,28 +83,23 @@ void search_engine::KaggleFinanceParseEngine::Parse(std::string file_path, const
         pthread_create(thread_array + i, NULL, this->ThreadParser, (void*)(arg_array + i));
         prev = prev + proportion;
     }
-    arg_array[this->thread_count - 1] = {
+    arg_array[this->thread_count_ - 1] = {
         .obj_ptr = this,
         .start = prev,
         .end = files_.size(),
     };
-    pthread_create(thread_array + thread_count - 1, NULL, this->ThreadParser, (void*)(arg_array + this->thread_count - 1));
+    pthread_create(thread_array + thread_count_ - 1, NULL, this->ThreadParser, (void*)(arg_array + this->thread_count_ - 1));
 
-    for (int64_t i = 0; i < this->thread_count; i++) {
+    for (int64_t i = 0; i < this->thread_count_; i++) {
         pthread_join(thread_array[i], NULL);
     }
 
-    // todo: add multiple threading to the following function call
-    // this->database_.text_index = std::move(this->MergeIntoDatabase(0, files_.size(), unformatted_database));
+    // todo: add multithreading to the following function call
+    // this->database_.text_index = std::move(this->MergeIntoDatabase(0, files_.size(), unformatted_database_));
 
-    for (auto&& outer_element : this->unformatted_database) {
-        std::unordered_map<std::string, parse_util::WordStatisticList> word_map;
+    for (auto&& outer_element : this->unformatted_database_) {
         for (auto&& inner_element : outer_element.second) {
-            word_map[inner_element.first].PushBack(outer_element.first, inner_element.second);
-        }
-
-        for (auto&& word_element : word_map) {
-            database_.text_index[word_element.first].CatGive(word_element.second);
+            database_.text_index[inner_element.first].PushBack(outer_element.first, inner_element.second);
         }
     }
 
@@ -130,8 +125,8 @@ void search_engine::KaggleFinanceParseEngine::ParseSingleArticle(const size_t i)
 
     const char* delimeters = " \t\v\n\r,.?!;:\"()";
     std::string text = doc["text"].GetString();
-    unformatted_database[i].first = doc["uuid"].GetString();
-    std::unordered_map<std::string, int64_t>& word_map = unformatted_database[i].second;
+    unformatted_database_[i].first = doc["uuid"].GetString();
+    std::unordered_map<std::string, int64_t>& word_map = unformatted_database_[i].second;
 
     char* save_ptr;
     char* token = strtok_r(text.data(), delimeters, &save_ptr);
@@ -161,8 +156,8 @@ std::unordered_map<std::string, search_engine::parse_util::WordStatisticList> se
     } else if (low == high) {
         const size_t i = low;
         std::unordered_map<std::string, parse_util::WordStatisticList> word_map;
-        for (auto&& inner_element : unformatted_database[i].second) {
-            word_map[inner_element.first].PushBack(unformatted_database[i].first, inner_element.second);
+        for (auto&& inner_element : unformatted_database_[i].second) {
+            word_map[inner_element.first].PushBack(unformatted_database_[i].first, inner_element.second);
         }
         return word_map;
     }
