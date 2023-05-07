@@ -78,11 +78,19 @@ void search_engine::KaggleFinanceParseEngine::Parse(std::string file_path, const
     }
 
     this->unformatted_database_ = std::move(std::vector<std::pair<std::string, std::unordered_map<std::string, int64_t>>>(files_.size()));  // uuid -> {word -> appearance count}
-    pthread_t parsing_thread_array[this->thread_count_];
-    args arg_array[this->thread_count_];
-    size_t proportion = files_.size() / this->thread_count_;
+    this->currently_parsing_ = true;
+
+    args arg_array[this->parsing_thread_count_];
+    pthread_t parsing_thread_array[this->parsing_thread_count_];
+    pthread_t filling_thread_array[this->filling_thread_count_];
+
+    for (int64_t i = 0; i < this->filling_thread_count_; i++) {
+        pthread_create(filling_thread_array + i, NULL, this->ThreadFilling, (void*)(this));
+    }
+
+    size_t proportion = files_.size() / this->parsing_thread_count_;
     size_t prev = 0;
-    for (int64_t i = 0; i < this->thread_count_ - 1; i++) {
+    for (int64_t i = 0; i < this->parsing_thread_count_ - 1; i++) {
         arg_array[i] = {
             .obj_ptr = this,
             .start = prev,
@@ -91,20 +99,18 @@ void search_engine::KaggleFinanceParseEngine::Parse(std::string file_path, const
         pthread_create(parsing_thread_array + i, NULL, this->ThreadParser, (void*)(arg_array + i));
         prev = prev + proportion;
     }
-    arg_array[this->thread_count_ - 1] = {
+    arg_array[this->parsing_thread_count_ - 1] = {
         .obj_ptr = this,
         .start = prev,
         .end = files_.size(),
     };
-    pthread_create(parsing_thread_array + thread_count_ - 1, NULL, this->ThreadParser, (void*)(arg_array + this->thread_count_ - 1));
-    for (int64_t i = 0; i < this->thread_count_; i++) {
+    pthread_create(parsing_thread_array + this->parsing_thread_count_ - 1, NULL, this->ThreadParser, (void*)(arg_array + this->parsing_thread_count_ - 1));
+    for (int64_t i = 0; i < this->parsing_thread_count_; i++) {
         pthread_join(parsing_thread_array[i], NULL);
     }
-
-    for (auto&& outer_element : unformatted_database_) {
-        for (auto&& inner_element : outer_element.second) {
-            database_.text_index[std::move(inner_element.first)].PushBack(outer_element.first, inner_element.second);
-        }
+    this->currently_parsing_ = false;
+    for (int64_t i = 0; i < this->filling_thread_count_; i++) {
+        pthread_join(filling_thread_array[i], NULL);
     }
 
     // prints out the data within the text index
@@ -143,6 +149,11 @@ void search_engine::KaggleFinanceParseEngine::ParseSingleArticle(const size_t i)
         token = strtok_r(NULL, delimeters, &save_ptr);
     }
     input.close();
+
+    pthread_mutex_lock(&buffer_mutex_);
+    this->buffer_.push(i);
+    pthread_mutex_unlock(&buffer_mutex_);
+    sem_post(&this->production_state_sem_);
 }
 
 void* search_engine::KaggleFinanceParseEngine::ThreadParser(void* _arg) {
@@ -151,5 +162,25 @@ void* search_engine::KaggleFinanceParseEngine::ThreadParser(void* _arg) {
         arguments->obj_ptr->ParseSingleArticle(i);
     }
 
+    return nullptr;
+}
+
+void* search_engine::KaggleFinanceParseEngine::ThreadFilling(void* _arg) {
+    search_engine::KaggleFinanceParseEngine* parse_engine = (search_engine::KaggleFinanceParseEngine*)_arg;
+    while (parse_engine->currently_parsing_ == true || parse_engine->buffer_.empty() == false) {
+        if(sem_trywait(&parse_engine->production_state_sem_) != 0){
+            continue;
+        }
+        const size_t i = parse_engine->buffer_.front();
+        pthread_mutex_lock(&parse_engine->buffer_mutex_);
+        parse_engine->buffer_.pop();
+        pthread_mutex_unlock(&parse_engine->buffer_mutex_);
+
+        for (auto&& inner_element : parse_engine->unformatted_database_[i].second) {
+            pthread_mutex_lock(&parse_engine->filling_mutex_);
+            parse_engine->database_.text_index[std::move(inner_element.first)].PushBack(parse_engine->unformatted_database_[i].first, inner_element.second);
+            pthread_mutex_unlock(&parse_engine->filling_mutex_);
+        }
+    }
     return nullptr;
 }
