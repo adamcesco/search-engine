@@ -10,65 +10,6 @@
 #include "rapidjson/document.h"
 #include "rapidjson/istreamwrapper.h"
 
-search_engine::parse_util::WordStatisticList::WordStatisticList(const search_engine::parse_util::WordStatisticList& list) {
-    this->dummy_ = new ListNode();
-    this->dummy_->prev = this->dummy_;
-    this->dummy_->next = this->dummy_;
-    ListNode* iter = list.dummy_->next;
-    while (iter != list.dummy_) {
-        ListNode* node = new ListNode(iter->uuid, iter->count);
-        this->dummy_->prev->next = node;
-        node->prev = this->dummy_->prev;
-        this->dummy_->prev = node;
-        node->next = this->dummy_;
-        iter = iter->next;
-    }
-}
-
-search_engine::parse_util::WordStatisticList& search_engine::parse_util::WordStatisticList::operator=(const search_engine::parse_util::WordStatisticList& list) {
-    if (this == &list) {
-        return *this;
-    }
-
-    {
-        ListNode* iter = dummy_;
-        dummy_->prev->next = nullptr;
-        while (iter != nullptr) {
-            ListNode* next = iter->next;
-            delete iter;
-            iter = next;
-        }
-    }
-    {
-        this->dummy_ = new ListNode();
-        this->dummy_->prev = this->dummy_;
-        this->dummy_->next = this->dummy_;
-        ListNode* iter = list.dummy_->next;
-        while (iter != list.dummy_) {
-            ListNode* node = new ListNode(iter->uuid, iter->count);
-            this->dummy_->prev->next = node;
-            node->prev = this->dummy_->prev;
-            this->dummy_->prev = node;
-            node->next = this->dummy_;
-
-            iter = iter->next;
-        }
-    }
-    return *this;
-}
-
-search_engine::parse_util::WordStatisticList::~WordStatisticList() {
-    ListNode* iter = dummy_;
-    dummy_->prev->next = nullptr;
-    while (iter != nullptr) {
-        ListNode* next = iter->next;
-        delete iter;
-        iter = next;
-    }
-}
-
-//-----------------------------------------------
-
 void search_engine::KaggleFinanceParseEngine::Parse(std::string file_path, const std::unordered_set<std::string>* stop_words) {
     auto it = std::filesystem::recursive_directory_iterator(file_path);
     for (const auto& entry : it) {
@@ -85,7 +26,7 @@ void search_engine::KaggleFinanceParseEngine::Parse(std::string file_path, const
     pthread_t filling_thread_array[this->filling_thread_count_];
 
     for (int64_t i = 0; i < this->filling_thread_count_; i++) {
-        pthread_create(filling_thread_array + i, NULL, this->ThreadFilling, (void*)(this));
+        pthread_create(filling_thread_array + i, NULL, this->FillingThreadFunc, (void*)(this));
     }
 
     size_t proportion = files_.size() / this->parsing_thread_count_;
@@ -96,7 +37,7 @@ void search_engine::KaggleFinanceParseEngine::Parse(std::string file_path, const
             .start = prev,
             .end = prev + proportion,
         };
-        pthread_create(parsing_thread_array + i, NULL, this->ThreadParser, (void*)(arg_array + i));
+        pthread_create(parsing_thread_array + i, NULL, this->ParsingThreadFunc, (void*)(arg_array + i));
         prev = prev + proportion;
     }
     arg_array[this->parsing_thread_count_ - 1] = {
@@ -104,7 +45,7 @@ void search_engine::KaggleFinanceParseEngine::Parse(std::string file_path, const
         .start = prev,
         .end = files_.size(),
     };
-    pthread_create(parsing_thread_array + this->parsing_thread_count_ - 1, NULL, this->ThreadParser, (void*)(arg_array + this->parsing_thread_count_ - 1));
+    pthread_create(parsing_thread_array + this->parsing_thread_count_ - 1, NULL, this->ParsingThreadFunc, (void*)(arg_array + this->parsing_thread_count_ - 1));
     for (int64_t i = 0; i < this->parsing_thread_count_; i++) {
         pthread_join(parsing_thread_array[i], NULL);
     }
@@ -114,12 +55,12 @@ void search_engine::KaggleFinanceParseEngine::Parse(std::string file_path, const
     }
 
     // prints out the data within the text index
-    // for (auto&& i : database_.text_index) {
-    //     std::cout << i.first << std::endl;
-    //     for (parse_util::WordStatisticList::ListNode* j = i.second.Front(); j != i.second.End(); j = j->next) {
-    //         std::cout << '\t' << j->uuid << ' ' << j->count << std::endl;
-    //     }
-    // }
+    for (auto&& i : database_.text_index) {
+        std::cout << i.first << std::endl;
+        for (auto&& j : i.second) {
+            std::cout << '\t' << j.first << ' ' << j.second << std::endl;
+        }
+    }
 }
 
 void search_engine::KaggleFinanceParseEngine::ParseSingleArticle(const size_t i) {  // todo: fill all other data within `database_`
@@ -156,7 +97,7 @@ void search_engine::KaggleFinanceParseEngine::ParseSingleArticle(const size_t i)
     sem_post(&this->production_state_sem_);
 }
 
-void* search_engine::KaggleFinanceParseEngine::ThreadParser(void* _arg) {
+void* search_engine::KaggleFinanceParseEngine::ParsingThreadFunc(void* _arg) {
     args* arguments = (args*)_arg;
     for (size_t i = arguments->start; i < arguments->end; i++) {
         arguments->obj_ptr->ParseSingleArticle(i);
@@ -165,7 +106,7 @@ void* search_engine::KaggleFinanceParseEngine::ThreadParser(void* _arg) {
     return nullptr;
 }
 
-void* search_engine::KaggleFinanceParseEngine::ThreadFilling(void* _arg) {
+void* search_engine::KaggleFinanceParseEngine::FillingThreadFunc(void* _arg) {
     search_engine::KaggleFinanceParseEngine* parse_engine = (search_engine::KaggleFinanceParseEngine*)_arg;
     while (parse_engine->currently_parsing_ == true || parse_engine->buffer_.empty() == false) {
         if(sem_trywait(&parse_engine->production_state_sem_) != 0){
@@ -178,7 +119,7 @@ void* search_engine::KaggleFinanceParseEngine::ThreadFilling(void* _arg) {
 
         for (auto&& inner_element : parse_engine->unformatted_database_[i].second) {
             pthread_mutex_lock(&parse_engine->filling_mutex_);
-            parse_engine->database_.text_index[std::move(inner_element.first)].PushBack(parse_engine->unformatted_database_[i].first, inner_element.second);
+            parse_engine->database_.text_index[std::move(inner_element.first)].emplace(parse_engine->unformatted_database_[i].first, inner_element.second);
             pthread_mutex_unlock(&parse_engine->filling_mutex_);
         }
     }

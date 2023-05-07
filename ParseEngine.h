@@ -16,61 +16,10 @@ namespace search_engine {
 
 namespace parse_util {
 
-class WordStatisticList {
-   public:
-    struct ListNode {
-        std::string uuid;
-        int64_t count = 0;
-        ListNode* next = nullptr;
-        ListNode* prev = nullptr;
-        ListNode() = default;
-        explicit ListNode(std::string id, int64_t x) : uuid(std::move(id)), count(x) {}
-        ListNode(std::string id, int64_t x, ListNode* next, ListNode* prev) : uuid(std::move(id)), count(x), next(next), prev(prev) {}
-    };
-
-    // constructor
-    WordStatisticList() : dummy_(new ListNode()) {
-        this->dummy_->prev = this->dummy_;
-        this->dummy_->next = this->dummy_;
-    };
-
-    // rule of 3
-    WordStatisticList(const WordStatisticList& list);
-    WordStatisticList& operator=(const WordStatisticList& list);
-    ~WordStatisticList();
-
-    inline void PushBack(const std::string& id, int64_t word_count) {
-        ListNode* node = new ListNode(id, word_count);
-        this->dummy_->prev->next = node;
-        node->prev = this->dummy_->prev;
-        this->dummy_->prev = node;
-        node->next = this->dummy_;
-    }
-
-    inline void CatGive(WordStatisticList& list) {
-        if (list.dummy_ == nullptr || list.dummy_->next == list.dummy_ || list.dummy_->prev == list.dummy_) {
-            return;
-        }
-        this->dummy_->prev->next = list.dummy_->next;
-        list.dummy_->next->prev = this->dummy_->prev;
-        list.dummy_->prev->next = this->dummy_;
-        this->dummy_->prev = list.dummy_->prev;
-        list.dummy_->prev = list.dummy_;
-        list.dummy_->next = list.dummy_;
-    }
-
-    inline ListNode* Front() { return dummy_->next; }
-    inline ListNode* Back() { return dummy_->prev; }
-    inline const ListNode* End() { return dummy_; }
-
-   private:
-    ListNode* dummy_ = nullptr;
-};
-
 struct RunTimeDataBase {
     std::unordered_map<std::string, std::string> id_map;            // uuid to file path
-    std::unordered_map<std::string, WordStatisticList> text_index;  // word -> list of {uuid -> count}
-    std::unordered_map<std::string, WordStatisticList> title_index;
+    std::unordered_map<std::string, std::unordered_map<std::string, int64_t>> text_index;  // word -> list of {uuid -> count}
+    std::unordered_map<std::string, std::unordered_map<std::string, int64_t>> title_index;
     std::unordered_map<std::string, std::vector<std::string>> site_index;
     std::unordered_map<std::string, std::vector<std::string>> language_index;
     std::unordered_map<std::string, std::vector<std::string>> location_index;
@@ -109,8 +58,8 @@ class KaggleFinanceParseEngine : public parse_util::ParseEngine {
         size_t end;
     };
     void ParseSingleArticle(const size_t i);
-    static void* ThreadParser(void* _arg);
-    static void* ThreadFilling(void* _arg);
+    static void* ParsingThreadFunc(void* _arg); //producer
+    static void* FillingThreadFunc(void* _arg); //consumer
 
     parse_util::RunTimeDataBase database_;
     std::vector<std::pair<std::string, std::unordered_map<std::string, int64_t>>> unformatted_database_;
