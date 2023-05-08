@@ -47,23 +47,10 @@ class ParseEngine {
 
 }  // namespace parse_util
 
-// the `KaggleFinanceParseEngine` class will be used to parse the data found at https://www.kaggle.com/datasets/jeet2016/us-financial-news-articles
+/// @brief The `KaggleFinanceParseEngine` class should be used to parse the data found at https://www.kaggle.com/datasets/jeet2016/us-financial-news-articles
 class KaggleFinanceParseEngine : public parse_util::ParseEngine {
    public:
-    KaggleFinanceParseEngine(size_t parse_amount, size_t fill_amount) : parsing_thread_count_(parse_amount), filling_thread_count_(fill_amount) {
-        sem_init(&this->production_state_sem_, 1, 0);
-        pthread_mutex_init(&arbitrator_buffer_mutex_, NULL);
-        pthread_mutex_init(&metadata_mutex_, NULL);
-        this->alpha_buffer_ = std::move(std::vector<std::queue<AlphaBufferArgs>>(this->filling_thread_count_));
-        this->arbitrator_sem_vec_ = std::move(std::vector<sem_t>(this->filling_thread_count_));
-        for (size_t i = 0; i < this->filling_thread_count_; i++) {
-            sem_init(this->arbitrator_sem_vec_.data() + i, 1, 0);
-        }
-        this->alpha_buffer_mutex_ = std::move(std::vector<pthread_mutex_t>(this->filling_thread_count_));
-        for (size_t i = 0; i < this->filling_thread_count_; i++) {
-            pthread_mutex_init(this->alpha_buffer_mutex_.data() + i, NULL);
-        }
-    }
+    explicit KaggleFinanceParseEngine(size_t parse_amount, size_t fill_amount);
     void Parse(std::string file_path, const std::unordered_set<std::string>* stop_words = NULL) override;
     inline const parse_util::RunTimeDataBase* GetRunTimeDatabase() const override { return &database_; };
 

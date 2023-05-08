@@ -10,6 +10,21 @@
 #include "rapidjson/document.h"
 #include "rapidjson/istreamwrapper.h"
 
+search_engine::KaggleFinanceParseEngine::KaggleFinanceParseEngine(size_t parse_amount, size_t fill_amount) : parsing_thread_count_(parse_amount), filling_thread_count_(fill_amount) {
+    sem_init(&this->production_state_sem_, 1, 0);
+    pthread_mutex_init(&arbitrator_buffer_mutex_, NULL);
+    pthread_mutex_init(&metadata_mutex_, NULL);
+    this->alpha_buffer_ = std::move(std::vector<std::queue<AlphaBufferArgs>>(this->filling_thread_count_));
+    this->arbitrator_sem_vec_ = std::move(std::vector<sem_t>(this->filling_thread_count_));
+    for (size_t i = 0; i < this->filling_thread_count_; i++) {
+        sem_init(this->arbitrator_sem_vec_.data() + i, 1, 0);
+    }
+    this->alpha_buffer_mutex_ = std::move(std::vector<pthread_mutex_t>(this->filling_thread_count_));
+    for (size_t i = 0; i < this->filling_thread_count_; i++) {
+        pthread_mutex_init(this->alpha_buffer_mutex_.data() + i, NULL);
+    }
+}
+
 void search_engine::KaggleFinanceParseEngine::Parse(std::string file_path, const std::unordered_set<std::string>* stop_words_ptr) {
     auto it = std::filesystem::recursive_directory_iterator(file_path);
     for (auto&& entry : it) {
@@ -65,16 +80,6 @@ void search_engine::KaggleFinanceParseEngine::Parse(std::string file_path, const
         pthread_join(filling_thread_array[i], NULL);
     }
     pthread_join(filling_arbitrator_thread, NULL);
-
-    // prints out the data within the text index
-    // for (auto&& i : database_.text_index) {
-    //     for (auto&& k : i) {
-    //         std::cout << k.first << std::endl;
-    //         for (auto&& j : k.second) {
-    //             std::cout << '\t' << j.first << ' ' << j.second << std::endl;
-    //         }
-    //     }
-    // }
 }
 
 void search_engine::KaggleFinanceParseEngine::ParseSingleArticle(const size_t file_subscript, const std::unordered_set<std::string>* stop_words_ptr) {
@@ -200,8 +205,8 @@ void* search_engine::KaggleFinanceParseEngine::FillingThreadFunc(void* _arg) {
         if (sem_trywait(&thread_args->obj_ptr->arbitrator_sem_vec_[thread_args->buffer_subscript]) != 0) {
             continue;
         }
-        const AlphaBufferArgs word_args = std::move(thread_args->obj_ptr->alpha_buffer_[thread_args->buffer_subscript].front());
         pthread_mutex_lock(&thread_args->obj_ptr->alpha_buffer_mutex_[thread_args->buffer_subscript]);
+        const AlphaBufferArgs word_args = std::move(thread_args->obj_ptr->alpha_buffer_[thread_args->buffer_subscript].front());
         thread_args->obj_ptr->alpha_buffer_[thread_args->buffer_subscript].pop();
         pthread_mutex_unlock(&thread_args->obj_ptr->alpha_buffer_mutex_[thread_args->buffer_subscript]);
 
