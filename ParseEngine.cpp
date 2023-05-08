@@ -168,8 +168,8 @@ void* search_engine::KaggleFinanceParseEngine::ArbitratorThreadFunc(void* _arg) 
         if (sem_trywait(&parse_engine->production_state_sem_) != 0) {
             continue;
         }
-        const size_t i = parse_engine->arbitrator_buffer_.front();
         pthread_mutex_lock(&parse_engine->arbitrator_buffer_mutex_);
+        const size_t i = parse_engine->arbitrator_buffer_.front();
         parse_engine->arbitrator_buffer_.pop();
         pthread_mutex_unlock(&parse_engine->arbitrator_buffer_mutex_);
 
