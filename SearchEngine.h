@@ -3,6 +3,7 @@
 
 #include <memory>
 #include <optional>
+#include <string_view>
 
 #include "ParseEngine.h"
 
@@ -12,11 +13,10 @@ class SearchEngine {
    public:
     SearchEngine(std::unique_ptr<parse_util::RunTimeDataBase>&& dep_inj_ptr) : database_ptr_{std::forward<std::unique_ptr<parse_util::RunTimeDataBase>>(dep_inj_ptr)} {}
 
-    void DisplayConsoleUserInterface(std::optional<std::string> shortcut);
-
-    std::unordered_set<std::string> HandleQuery(std::string query);
+    void DisplayConsoleUserInterface(std::optional<std::string> shortcut = std::nullopt);
 
    private:
+    std::unordered_set<std::string> HandleQuery(std::string query);
 
     std::unique_ptr<parse_util::RunTimeDataBase> database_ptr_;
 };

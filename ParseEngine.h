@@ -31,11 +31,18 @@ struct RunTimeDataBase {
 
 class ParseEngine {
    public:
-    // the value pointed to by the `stop_words` pointer must outlive this functions entire execution, but providing a value for `stop_words` is optional
-    virtual void Parse(std::string file_path, const std::unordered_set<std::string>* stop_words) = 0;
+    /*!
+     * @warning The optional `stop_words_ptr` pointer parameter, if supplied to this function, must outlive this functions entire execution.
+     * @param file_path The file path of the file or folder of files you desire to parse and fill a RunTimeDataBase object with.
+     * @param stop_words_ptr An optional parameter that is a constant pointer to an unordered_set of stop words.
+     */
+    virtual void Parse(std::string file_path, const std::unordered_set<std::string>* stop_words_ptr = NULL) = 0;
 
-    // the use of the return value should be restricted to the lifetime of the ParseEngine object
-    virtual inline const RunTimeDataBase* GetRunTimeDataBase() const = 0;
+    /*!
+     * @brief Returns the RunTimeDataBase owned by the invoked ParseEngine object.
+     * @warning The return value should not be deleted, and the use of the return value should be restricted to the lifetime of the invoked ParseEngine object.
+     */
+    virtual inline const RunTimeDataBase* GetRunTimeDatabase() const = 0;
 };
 
 }  // namespace parse_util
@@ -57,8 +64,8 @@ class KaggleFinanceParseEngine : public parse_util::ParseEngine {
             pthread_mutex_init(this->alpha_buffer_mutex_.data() + i, NULL);
         }
     }
-    void Parse(std::string file_path, const std::unordered_set<std::string>* stop_words) override;
-    inline const parse_util::RunTimeDataBase* GetRunTimeDataBase() const override { return &database_; };
+    void Parse(std::string file_path, const std::unordered_set<std::string>* stop_words = NULL) override;
+    inline const parse_util::RunTimeDataBase* GetRunTimeDatabase() const override { return &database_; };
 
    private:
     struct ParsingThreadArgs {
@@ -76,6 +83,7 @@ class KaggleFinanceParseEngine : public parse_util::ParseEngine {
         std::string word;
         uint32_t count;
     };
+
     void ParseSingleArticle(const size_t file_subscript, const std::unordered_set<std::string>* stop_words_ptr);
     static void* ParsingThreadFunc(void* _arg);     // producer
     static void* ArbitratorThreadFunc(void* _arg);  // consumer and producer

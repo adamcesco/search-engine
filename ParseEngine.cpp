@@ -12,9 +12,9 @@
 
 void search_engine::KaggleFinanceParseEngine::Parse(std::string file_path, const std::unordered_set<std::string>* stop_words_ptr) {
     auto it = std::filesystem::recursive_directory_iterator(file_path);
-    for (const auto& entry : it) {
+    for (auto&& entry : it) {
         if (entry.is_regular_file() && entry.path().extension().string() == ".json") {
-            this->files_.push_back(entry.path());
+            this->files_.push_back(std::move(entry.path()));
         }
     }
 
@@ -77,7 +77,7 @@ void search_engine::KaggleFinanceParseEngine::Parse(std::string file_path, const
     // }
 }
 
-void search_engine::KaggleFinanceParseEngine::ParseSingleArticle(const size_t file_subscript, const std::unordered_set<std::string>* stop_words_ptr) {  // todo: fill all other data within `database_`
+void search_engine::KaggleFinanceParseEngine::ParseSingleArticle(const size_t file_subscript, const std::unordered_set<std::string>* stop_words_ptr) {
     std::ifstream input(files_[file_subscript]);
     if (input.is_open() == false) {
         std::cerr << "cannot open file: " << this->files_[file_subscript].string() << std::endl;
@@ -89,10 +89,10 @@ void search_engine::KaggleFinanceParseEngine::ParseSingleArticle(const size_t fi
     doc.ParseStream(isw);
 
     const char* delimeters = " \t\v\n\r,.?!;:\"/()";
-    const std::string& uuid = this->unformatted_database_[file_subscript].first = std::move(doc["uuid"].GetString());
+    std::string_view uuid = this->unformatted_database_[file_subscript].first = std::move(doc["uuid"].GetString());
 
     pthread_mutex_lock(&this->metadata_mutex_);
-    this->database_.id_map[uuid] = this->files_[file_subscript].string();
+    this->database_.id_map[uuid.data()] = this->files_[file_subscript].string();
     this->database_.site_index[doc["thread"]["site"].GetString()].emplace(uuid);
     this->database_.author_index[doc["author"].GetString()].emplace(uuid);
     this->database_.country_index[doc["thread"]["country"].GetString()].emplace(uuid);
@@ -159,7 +159,7 @@ void* search_engine::KaggleFinanceParseEngine::ParsingThreadFunc(void* _arg) {
         thread_args->obj_ptr->ParseSingleArticle(i, thread_args->stop_words_ptr);
     }
 
-    return nullptr;
+    return NULL;
 }
 
 void* search_engine::KaggleFinanceParseEngine::ArbitratorThreadFunc(void* _arg) {
@@ -191,7 +191,7 @@ void* search_engine::KaggleFinanceParseEngine::ArbitratorThreadFunc(void* _arg) 
             sem_post(&parse_engine->arbitrator_sem_vec_[word_buffer_index]);
         }
     }
-    return nullptr;
+    return NULL;
 }
 
 void* search_engine::KaggleFinanceParseEngine::FillingThreadFunc(void* _arg) {
@@ -207,5 +207,5 @@ void* search_engine::KaggleFinanceParseEngine::FillingThreadFunc(void* _arg) {
 
         thread_args->obj_ptr->database_.text_index[thread_args->buffer_subscript][std::move(word_args.word)].emplace(thread_args->obj_ptr->unformatted_database_[word_args.file_subscript].first, word_args.count);
     }
-    return nullptr;
+    return NULL;
 }
