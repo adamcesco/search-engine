@@ -17,9 +17,9 @@ namespace search_engine {
 namespace parse_util {
 
 struct RunTimeDataBase {
-    std::unordered_map<std::string, std::string> id_map;            // uuid to file path
-    std::vector<std::unordered_map<std::string, std::unordered_map<std::string, int64_t>>> text_index;  // word -> list of {uuid -> count}
-    std::unordered_map<std::string, std::unordered_map<std::string, int64_t>> title_index;
+    std::unordered_map<std::string, std::string> id_map;            // uuid -> file path
+    std::vector<std::unordered_map<std::string, std::unordered_map<std::string, uint32_t>>> text_index;  // word -> list of {uuid -> count}
+    std::unordered_map<std::string, std::unordered_map<std::string, uint32_t>> title_index;
     std::unordered_map<std::string, std::vector<std::string>> site_index;
     std::unordered_map<std::string, std::vector<std::string>> language_index;
     std::unordered_map<std::string, std::vector<std::string>> location_index;
@@ -62,25 +62,26 @@ class KaggleFinanceParseEngine : public parse_util::ParseEngine {
    private:
     struct ParsingThreadArgs {
         KaggleFinanceParseEngine* obj_ptr;
+        const std::unordered_set<std::string>* stop_words_ptr;
         size_t start;
         size_t end;
     };
     struct FillingThreadArgs {
         KaggleFinanceParseEngine* obj_ptr;
-        size_t buffer_index;
+        size_t buffer_subscript;
     };
     struct AlphaBufferArgs {
-        size_t file_index;
+        size_t file_subscript;
         std::string word;
-        int64_t count;
+        uint32_t count;
     };
-    void ParseSingleArticle(const size_t i);
+    void ParseSingleArticle(const size_t file_subscript, const std::unordered_set<std::string>* stop_words_ptr);
     static void* ParsingThreadFunc(void* _arg); //producer
     static void* ArbitratorThreadFunc(void* _arg); //consumer and producer
     static void* FillingThreadFunc(void* _arg); //consumer
 
     parse_util::RunTimeDataBase database_;
-    std::vector<std::pair<std::string, std::unordered_map<std::string, int64_t>>> unformatted_database_;
+    std::vector<std::pair<std::string, std::unordered_map<std::string, uint32_t>>> unformatted_database_;
     std::vector<std::filesystem::__cxx11::path> files_;
     size_t parsing_thread_count_;
     size_t filling_thread_count_;
