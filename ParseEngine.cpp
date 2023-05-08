@@ -18,8 +18,8 @@ void search_engine::KaggleFinanceParseEngine::Parse(std::string file_path, const
         }
     }
 
-    this->unformatted_database_ = std::move(std::vector<std::pair<std::string, std::unordered_map<std::string, uint32_t>>>(files_.size()));                        // uuid -> {word -> appearance count}
-    this->database_.text_index = std::move(std::vector<std::unordered_map<std::string, std::unordered_map<std::string, uint32_t>>>(this->filling_thread_count_));  // uuid -> {word -> appearance count}
+    this->unformatted_database_ = std::move(std::vector<std::pair<std::string, std::unordered_map<std::string, uint32_t>>>(files_.size()));
+    this->database_.text_index = std::move(std::vector<std::unordered_map<std::string, std::unordered_map<std::string, uint32_t>>>(this->filling_thread_count_));
     this->currently_parsing_ = true;
 
     ParsingThreadArgs parsing_arg_array[this->parsing_thread_count_];
@@ -67,14 +67,14 @@ void search_engine::KaggleFinanceParseEngine::Parse(std::string file_path, const
     pthread_join(filling_arbitrator_thread, NULL);
 
     // prints out the data within the text index
-    for (auto&& i : database_.text_index) {
-        for (auto&& k : i) {
-            std::cout << k.first << std::endl;
-            for (auto&& j : k.second) {
-                std::cout << '\t' << j.first << ' ' << j.second << std::endl;
-            }
-        }
-    }
+    // for (auto&& i : database_.text_index) {
+    //     for (auto&& k : i) {
+    //         std::cout << k.first << std::endl;
+    //         for (auto&& j : k.second) {
+    //             std::cout << '\t' << j.first << ' ' << j.second << std::endl;
+    //         }
+    //     }
+    // }
 }
 
 void search_engine::KaggleFinanceParseEngine::ParseSingleArticle(const size_t file_subscript, const std::unordered_set<std::string>* stop_words_ptr) {  // todo: fill all other data within `database_`
@@ -89,10 +89,33 @@ void search_engine::KaggleFinanceParseEngine::ParseSingleArticle(const size_t fi
     doc.ParseStream(isw);
 
     const char* delimeters = " \t\v\n\r,.?!;:\"/()";
-    std::string text = doc["text"].GetString();
-    this->unformatted_database_[file_subscript].first = doc["uuid"].GetString();
-    std::unordered_map<std::string, uint32_t>& word_map = this->unformatted_database_[file_subscript].second;
+    const std::string& uuid = this->unformatted_database_[file_subscript].first = std::move(doc["uuid"].GetString());
 
+    pthread_mutex_lock(&this->metadata_mutex_);
+    this->database_.id_map[uuid] = this->files_[file_subscript].string();
+    this->database_.site_index[doc["thread"]["site"].GetString()].emplace(uuid);
+    this->database_.author_index[doc["author"].GetString()].emplace(uuid);
+    this->database_.country_index[doc["thread"]["country"].GetString()].emplace(uuid);
+    this->database_.language_index[doc["language"].GetString()].emplace(uuid);
+
+    const auto& people_array = doc["entities"]["persons"].GetArray();
+    for (const auto& person : people_array) {
+        this->database_.person_index[person["name"].GetString()].emplace(uuid);
+    }
+
+    const auto& location_array = doc["entities"]["locations"].GetArray();
+    for (const auto& location : location_array) {
+        this->database_.location_index[location["name"].GetString()].emplace(uuid);
+    }
+
+    const auto& organization_array = doc["entities"]["organizations"].GetArray();
+    for (const auto& organization : organization_array) {
+        this->database_.organization_index[organization["name"].GetString()].emplace(uuid);
+    }
+    pthread_mutex_unlock(&this->metadata_mutex_);
+
+    std::unordered_map<std::string, uint32_t>& word_map = this->unformatted_database_[file_subscript].second;
+    std::string text(std::move(doc["text"].GetString()));
     char* save_ptr;
     char* token = strtok_r(text.data(), delimeters, &save_ptr);
     while (token != NULL) {
@@ -124,9 +147,9 @@ void search_engine::KaggleFinanceParseEngine::ParseSingleArticle(const size_t fi
     }
     input.close();
 
-    pthread_mutex_lock(&this->buffer_mutex_);
-    this->buffer_.push(file_subscript);
-    pthread_mutex_unlock(&this->buffer_mutex_);
+    pthread_mutex_lock(&this->arbitrator_buffer_mutex_);
+    this->arbitrator_buffer_.push(file_subscript);
+    pthread_mutex_unlock(&this->arbitrator_buffer_mutex_);
     sem_post(&this->production_state_sem_);
 }
 
@@ -141,14 +164,14 @@ void* search_engine::KaggleFinanceParseEngine::ParsingThreadFunc(void* _arg) {
 
 void* search_engine::KaggleFinanceParseEngine::ArbitratorThreadFunc(void* _arg) {
     search_engine::KaggleFinanceParseEngine* parse_engine = (search_engine::KaggleFinanceParseEngine*)_arg;
-    while (parse_engine->currently_parsing_ == true || parse_engine->buffer_.empty() == false) {
+    while (parse_engine->currently_parsing_ == true || parse_engine->arbitrator_buffer_.empty() == false) {
         if (sem_trywait(&parse_engine->production_state_sem_) != 0) {
             continue;
         }
-        const size_t i = parse_engine->buffer_.front();
-        pthread_mutex_lock(&parse_engine->buffer_mutex_);
-        parse_engine->buffer_.pop();
-        pthread_mutex_unlock(&parse_engine->buffer_mutex_);
+        const size_t i = parse_engine->arbitrator_buffer_.front();
+        pthread_mutex_lock(&parse_engine->arbitrator_buffer_mutex_);
+        parse_engine->arbitrator_buffer_.pop();
+        pthread_mutex_unlock(&parse_engine->arbitrator_buffer_mutex_);
 
         for (auto&& inner_element : parse_engine->unformatted_database_[i].second) {
             if (inner_element.first.empty() == true) {
@@ -161,7 +184,7 @@ void* search_engine::KaggleFinanceParseEngine::ArbitratorThreadFunc(void* _arg) 
             pthread_mutex_lock(&parse_engine->alpha_buffer_mutex_[word_buffer_index]);
             parse_engine->alpha_buffer_[word_buffer_index].push(std::move(AlphaBufferArgs{
                 .file_subscript = i,
-                .word = inner_element.first,
+                .word = std::move(inner_element.first),
                 .count = inner_element.second,
             }));
             pthread_mutex_unlock(&parse_engine->alpha_buffer_mutex_[word_buffer_index]);

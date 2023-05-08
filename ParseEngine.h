@@ -20,13 +20,13 @@ struct RunTimeDataBase {
     std::unordered_map<std::string, std::string> id_map;                                                 // uuid -> file path
     std::vector<std::unordered_map<std::string, std::unordered_map<std::string, uint32_t>>> text_index;  // word -> list of {uuid -> count}
     std::unordered_map<std::string, std::unordered_map<std::string, uint32_t>> title_index;
-    std::unordered_map<std::string, std::vector<std::string>> site_index;
-    std::unordered_map<std::string, std::vector<std::string>> language_index;
-    std::unordered_map<std::string, std::vector<std::string>> location_index;
-    std::unordered_map<std::string, std::vector<std::string>> people_index;
-    std::unordered_map<std::string, std::vector<std::string>> organization_index;
-    std::unordered_map<std::string, std::vector<std::string>> author_index;
-    std::unordered_map<std::string, std::vector<std::string>> country_index;
+    std::unordered_map<std::string, std::unordered_set<std::string>> site_index;
+    std::unordered_map<std::string, std::unordered_set<std::string>> language_index;
+    std::unordered_map<std::string, std::unordered_set<std::string>> location_index;
+    std::unordered_map<std::string, std::unordered_set<std::string>> person_index;
+    std::unordered_map<std::string, std::unordered_set<std::string>> organization_index;
+    std::unordered_map<std::string, std::unordered_set<std::string>> author_index;
+    std::unordered_map<std::string, std::unordered_set<std::string>> country_index;
 };
 
 class ParseEngine {
@@ -45,7 +45,8 @@ class KaggleFinanceParseEngine : public parse_util::ParseEngine {
    public:
     KaggleFinanceParseEngine(size_t parse_amount, size_t fill_amount) : parsing_thread_count_(parse_amount), filling_thread_count_(fill_amount) {
         sem_init(&this->production_state_sem_, 1, 0);
-        pthread_mutex_init(&buffer_mutex_, NULL);
+        pthread_mutex_init(&arbitrator_buffer_mutex_, NULL);
+        pthread_mutex_init(&metadata_mutex_, NULL);
         this->alpha_buffer_ = std::move(std::vector<std::queue<AlphaBufferArgs>>(this->filling_thread_count_));
         this->arbitrator_sem_vec_ = std::move(std::vector<sem_t>(this->filling_thread_count_));
         for (size_t i = 0; i < this->filling_thread_count_; i++) {
@@ -85,12 +86,13 @@ class KaggleFinanceParseEngine : public parse_util::ParseEngine {
     std::vector<std::filesystem::__cxx11::path> files_;
     size_t parsing_thread_count_;
     size_t filling_thread_count_;
-    std::queue<size_t> buffer_;
+    std::queue<size_t> arbitrator_buffer_;
     std::vector<std::queue<AlphaBufferArgs>> alpha_buffer_;
     bool currently_parsing_ = false;
     sem_t production_state_sem_;
     std::vector<sem_t> arbitrator_sem_vec_;
-    pthread_mutex_t buffer_mutex_;
+    pthread_mutex_t arbitrator_buffer_mutex_;
+    pthread_mutex_t metadata_mutex_;
     std::vector<pthread_mutex_t> alpha_buffer_mutex_;
 };
 
