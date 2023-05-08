@@ -17,7 +17,7 @@ namespace search_engine {
 namespace parse_util {
 
 struct RunTimeDataBase {
-    std::unordered_map<std::string, std::string> id_map;            // uuid -> file path
+    std::unordered_map<std::string, std::string> id_map;                                                 // uuid -> file path
     std::vector<std::unordered_map<std::string, std::unordered_map<std::string, uint32_t>>> text_index;  // word -> list of {uuid -> count}
     std::unordered_map<std::string, std::unordered_map<std::string, uint32_t>> title_index;
     std::unordered_map<std::string, std::vector<std::string>> site_index;
@@ -76,9 +76,9 @@ class KaggleFinanceParseEngine : public parse_util::ParseEngine {
         uint32_t count;
     };
     void ParseSingleArticle(const size_t file_subscript, const std::unordered_set<std::string>* stop_words_ptr);
-    static void* ParsingThreadFunc(void* _arg); //producer
-    static void* ArbitratorThreadFunc(void* _arg); //consumer and producer
-    static void* FillingThreadFunc(void* _arg); //consumer
+    static void* ParsingThreadFunc(void* _arg);     // producer
+    static void* ArbitratorThreadFunc(void* _arg);  // consumer and producer
+    static void* FillingThreadFunc(void* _arg);     // consumer
 
     parse_util::RunTimeDataBase database_;
     std::vector<std::pair<std::string, std::unordered_map<std::string, uint32_t>>> unformatted_database_;

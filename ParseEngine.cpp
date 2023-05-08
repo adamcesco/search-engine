@@ -56,7 +56,7 @@ void search_engine::KaggleFinanceParseEngine::Parse(std::string file_path, const
         .end = files_.size(),
     };
     pthread_create(parsing_thread_array + this->parsing_thread_count_ - 1, NULL, this->ParsingThreadFunc, (void*)(parsing_arg_array + this->parsing_thread_count_ - 1));
-    
+
     for (size_t i = 0; i < this->parsing_thread_count_; i++) {
         pthread_join(parsing_thread_array[i], NULL);
     }
@@ -80,7 +80,7 @@ void search_engine::KaggleFinanceParseEngine::Parse(std::string file_path, const
 void search_engine::KaggleFinanceParseEngine::ParseSingleArticle(const size_t file_subscript, const std::unordered_set<std::string>* stop_words_ptr) {  // todo: fill all other data within `database_`
     std::ifstream input(files_[file_subscript]);
     if (input.is_open() == false) {
-        std::cerr << "cannot open file: " << files_[file_subscript].string() << std::endl;
+        std::cerr << "cannot open file: " << this->files_[file_subscript].string() << std::endl;
         return;
     }
 
@@ -98,7 +98,7 @@ void search_engine::KaggleFinanceParseEngine::ParseSingleArticle(const size_t fi
     while (token != NULL) {
         size_t token_length = strlen(token);
 
-        //check for unicode characters and lowercase token
+        // check for unicode characters and lowercase token
         bool unicode = false;
         for (size_t i = 0; i < token_length; i++) {
             if (token[i] < 0 || token[i] > 127) {
@@ -107,7 +107,7 @@ void search_engine::KaggleFinanceParseEngine::ParseSingleArticle(const size_t fi
             }
             token[i] = tolower(token[i]);
         }
-        if (unicode == true) { //skips words with unicode characters
+        if (unicode == true) {  // skips words with unicode characters
             token = strtok_r(NULL, delimeters, &save_ptr);
             continue;
         }
@@ -124,9 +124,9 @@ void search_engine::KaggleFinanceParseEngine::ParseSingleArticle(const size_t fi
     }
     input.close();
 
-    pthread_mutex_lock(&buffer_mutex_);
+    pthread_mutex_lock(&this->buffer_mutex_);
     this->buffer_.push(file_subscript);
-    pthread_mutex_unlock(&buffer_mutex_);
+    pthread_mutex_unlock(&this->buffer_mutex_);
     sem_post(&this->production_state_sem_);
 }
 
@@ -154,7 +154,7 @@ void* search_engine::KaggleFinanceParseEngine::ArbitratorThreadFunc(void* _arg) 
             if (inner_element.first.empty() == true) {
                 continue;
             }
-            
+
             size_t word_buffer_index = 0;
             word_buffer_index = size_t(inner_element.first[0]) % parse_engine->filling_thread_count_;
 
@@ -181,7 +181,7 @@ void* search_engine::KaggleFinanceParseEngine::FillingThreadFunc(void* _arg) {
         pthread_mutex_lock(&thread_args->obj_ptr->alpha_buffer_mutex_[thread_args->buffer_subscript]);
         thread_args->obj_ptr->alpha_buffer_[thread_args->buffer_subscript].pop();
         pthread_mutex_unlock(&thread_args->obj_ptr->alpha_buffer_mutex_[thread_args->buffer_subscript]);
-        
+
         thread_args->obj_ptr->database_.text_index[thread_args->buffer_subscript][std::move(word_args.word)].emplace(thread_args->obj_ptr->unformatted_database_[word_args.file_subscript].first, word_args.count);
     }
     return nullptr;
