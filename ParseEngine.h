@@ -18,7 +18,7 @@ namespace parse_util {
 
 struct RunTimeDataBase {
     std::unordered_map<std::string, std::string> id_map;            // uuid to file path
-    std::unordered_map<std::string, std::unordered_map<std::string, int64_t>> text_index;  // word -> list of {uuid -> count}
+    std::vector<std::unordered_map<std::string, std::unordered_map<std::string, int64_t>>> text_index;  // word -> list of {uuid -> count}
     std::unordered_map<std::string, std::unordered_map<std::string, int64_t>> title_index;
     std::unordered_map<std::string, std::vector<std::string>> site_index;
     std::unordered_map<std::string, std::vector<std::string>> language_index;
@@ -43,32 +43,49 @@ class ParseEngine {
 // the `KaggleFinanceParseEngine` class will be used to parse the data found at https://www.kaggle.com/datasets/jeet2016/us-financial-news-articles
 class KaggleFinanceParseEngine : public parse_util::ParseEngine {
    public:
-    KaggleFinanceParseEngine(int64_t parse_amount, int64_t fill_amount) : parsing_thread_count_(parse_amount), filling_thread_count_(fill_amount) {
+    KaggleFinanceParseEngine(size_t parse_amount, size_t fill_amount) : parsing_thread_count_(parse_amount), filling_thread_count_(fill_amount) {
         sem_init(&this->production_state_sem_, 1, 0);
         pthread_mutex_init(&buffer_mutex_, NULL);
         pthread_mutex_init(&filling_mutex_, NULL);
+        this->alpha_buffer_ = std::move(std::vector<std::queue<AlphaBufferArgs>>(this->filling_thread_count_));
+        this->arbitrator_sem_vec_ = std::move(std::vector<sem_t>(this->filling_thread_count_));
+        for (size_t i = 0; i < this->filling_thread_count_; i++) {
+            sem_init(this->arbitrator_sem_vec_.data() + i, 1, 0);
+        }
     }
     void Parse(std::string file_path, const std::unordered_set<std::string>* stop_words) override;
     inline const parse_util::RunTimeDataBase* GetRunTimeDataBase() const override { return &database_; };
 
    private:
-    struct args {
+    struct ParsingThreadArgs {
         KaggleFinanceParseEngine* obj_ptr;
         size_t start;
         size_t end;
     };
+    struct FillingThreadArgs {
+        KaggleFinanceParseEngine* obj_ptr;
+        size_t buffer_index;
+    };
+    struct AlphaBufferArgs {
+        size_t file_index;
+        std::string word;
+        int64_t count;
+    };
     void ParseSingleArticle(const size_t i);
     static void* ParsingThreadFunc(void* _arg); //producer
+    static void* ArbitratorThreadFunc(void* _arg); //consumer and producer
     static void* FillingThreadFunc(void* _arg); //consumer
 
     parse_util::RunTimeDataBase database_;
     std::vector<std::pair<std::string, std::unordered_map<std::string, int64_t>>> unformatted_database_;
     std::vector<std::filesystem::__cxx11::path> files_;
-    int64_t parsing_thread_count_;
-    int64_t filling_thread_count_;
+    size_t parsing_thread_count_;
+    size_t filling_thread_count_;
     std::queue<size_t> buffer_;
+    std::vector<std::queue<AlphaBufferArgs>> alpha_buffer_;
     bool currently_parsing_ = false;
     sem_t production_state_sem_;
+    std::vector<sem_t> arbitrator_sem_vec_;
     pthread_mutex_t buffer_mutex_;
     pthread_mutex_t filling_mutex_;
 };
