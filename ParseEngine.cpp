@@ -63,14 +63,14 @@ void search_engine::KaggleFinanceParseEngine::Parse(std::string file_path, const
     }
 
     // prints out the data within the text index
-    for (auto&& i : database_.text_index) {
-        for (auto&& k : i) {
-            std::cout << k.first << std::endl;
-            for (auto&& j : k.second) {
-                std::cout << '\t' << j.first << ' ' << j.second << std::endl;
-            }
-        }
-    }
+    // for (auto&& i : database_.text_index) {
+    //     for (auto&& k : i) {
+    //         std::cout << k.first << std::endl;
+    //         for (auto&& j : k.second) {
+    //             std::cout << '\t' << j.first << ' ' << j.second << std::endl;
+    //         }
+    //     }
+    // }
 }
 
 void search_engine::KaggleFinanceParseEngine::ParseSingleArticle(const size_t i) {  // todo: fill all other data within `database_`
@@ -134,12 +134,13 @@ void* search_engine::KaggleFinanceParseEngine::ArbitratorThreadFunc(void* _arg) 
             
             size_t index = 0;
             index = int16_t(inner_element.first[0]) % parse_engine->filling_thread_count_;
-
-            parse_engine->alpha_buffer_[index].push(AlphaBufferArgs{
+            pthread_mutex_lock(&parse_engine->alpha_buffer_mutex_[index]);
+            parse_engine->alpha_buffer_[index].push(std::move(AlphaBufferArgs{
                 .file_index = i,
-                .word = std::move(inner_element.first),
+                .word = inner_element.first,
                 .count = inner_element.second,
-            });
+            }));
+            pthread_mutex_unlock(&parse_engine->alpha_buffer_mutex_[index]);
             sem_post(&parse_engine->arbitrator_sem_vec_[index]);
         }
     }
@@ -153,8 +154,10 @@ void* search_engine::KaggleFinanceParseEngine::FillingThreadFunc(void* _arg) {
             continue;
         }
         const AlphaBufferArgs word_args = std::move(thread_args->obj_ptr->alpha_buffer_[thread_args->buffer_index].front());
-        thread_args->obj_ptr->alpha_buffer_[thread_args->buffer_index].pop();
         thread_args->obj_ptr->database_.text_index[thread_args->buffer_index][std::move(word_args.word)].emplace(thread_args->obj_ptr->unformatted_database_[word_args.file_index].first, word_args.count);
+        pthread_mutex_lock(&thread_args->obj_ptr->alpha_buffer_mutex_[thread_args->buffer_index]);
+        thread_args->obj_ptr->alpha_buffer_[thread_args->buffer_index].pop();
+        pthread_mutex_unlock(&thread_args->obj_ptr->alpha_buffer_mutex_[thread_args->buffer_index]);
     }
     return nullptr;
 }

@@ -46,11 +46,14 @@ class KaggleFinanceParseEngine : public parse_util::ParseEngine {
     KaggleFinanceParseEngine(size_t parse_amount, size_t fill_amount) : parsing_thread_count_(parse_amount), filling_thread_count_(fill_amount) {
         sem_init(&this->production_state_sem_, 1, 0);
         pthread_mutex_init(&buffer_mutex_, NULL);
-        pthread_mutex_init(&filling_mutex_, NULL);
         this->alpha_buffer_ = std::move(std::vector<std::queue<AlphaBufferArgs>>(this->filling_thread_count_));
         this->arbitrator_sem_vec_ = std::move(std::vector<sem_t>(this->filling_thread_count_));
         for (size_t i = 0; i < this->filling_thread_count_; i++) {
             sem_init(this->arbitrator_sem_vec_.data() + i, 1, 0);
+        }
+        this->alpha_buffer_mutex_ = std::move(std::vector<pthread_mutex_t>(this->filling_thread_count_));
+        for (size_t i = 0; i < this->filling_thread_count_; i++) {
+            pthread_mutex_init(this->alpha_buffer_mutex_.data() + i, NULL);
         }
     }
     void Parse(std::string file_path, const std::unordered_set<std::string>* stop_words) override;
@@ -87,7 +90,7 @@ class KaggleFinanceParseEngine : public parse_util::ParseEngine {
     sem_t production_state_sem_;
     std::vector<sem_t> arbitrator_sem_vec_;
     pthread_mutex_t buffer_mutex_;
-    pthread_mutex_t filling_mutex_;
+    std::vector<pthread_mutex_t> alpha_buffer_mutex_;
 };
 
 }  // namespace search_engine
