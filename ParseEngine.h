@@ -11,7 +11,6 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
-#include <optional>
 
 namespace search_engine {
 
@@ -44,9 +43,9 @@ class ParseEngine {
      * @param file_path The file path of the file or folder of files you desire to parse and fill a RunTimeDatabase object with.
      * @param stop_words_ptr An optional parameter that is a constant pointer to an unordered_set of stop words.
      */
-    virtual void Parse(std::string file_path, const std::unordered_set<std::string>* stop_words_ptr = NULL) = 0;
+    virtual void Parse(std::string file_path, const std::unordered_set<T>* stop_words_ptr = NULL) = 0;
 
-    virtual T CleanToken(char* token, std::optional<size_t> size = std::nullopt) = 0;
+    virtual T CleanToken(const char* token, std::optional<size_t> size = std::nullopt) = 0;
 
     /*!
      * @brief Returns the RunTimeDatabase owned by the invoked ParseEngine object.
@@ -60,17 +59,17 @@ class ParseEngine {
 }  // namespace parse_util
 
 /// @brief The `KaggleFinanceParseEngine` class should be used to parse the data found at https://www.kaggle.com/datasets/jeet2016/us-financial-news-articles
-class KaggleFinanceParseEngine : public parse_util::ParseEngine<std::string, std::string> {
+class KaggleFinanceParseEngine : public parse_util::ParseEngine<size_t, size_t> {
    public:
     explicit KaggleFinanceParseEngine(size_t parse_amount, size_t fill_amount);
-    void Parse(std::string file_path, const std::unordered_set<std::string>* stop_words = NULL) override;
-    std::string CleanToken(char* token, std::optional<size_t> size = std::nullopt) override;
-    inline const parse_util::RunTimeDatabase<std::string, std::string>* GetRunTimeDatabase() const override { return &database_; };
+    void Parse(std::string file_path, const std::unordered_set<size_t>* stop_words = NULL) override;
+    size_t CleanToken(const char* token, std::optional<size_t> size = std::nullopt) override;
+    inline const parse_util::RunTimeDatabase<size_t, size_t>* GetRunTimeDatabase() const override { return &database_; };
 
    private:
     struct ParsingThreadArgs {
         KaggleFinanceParseEngine* obj_ptr;
-        const std::unordered_set<std::string>* stop_words_ptr;
+        const std::unordered_set<size_t>* stop_words_ptr;
         size_t start;
         size_t end;
     };
@@ -80,17 +79,17 @@ class KaggleFinanceParseEngine : public parse_util::ParseEngine<std::string, std
     };
     struct AlphaBufferArgs {
         size_t file_subscript;
-        std::string word;
+        size_t word;
         uint32_t count;
     };
 
-    void ParseSingleArticle(const size_t file_subscript, const std::unordered_set<std::string>* stop_words_ptr);
+    void ParseSingleArticle(const size_t file_subscript, const std::unordered_set<size_t>* stop_words_ptr);
     static void* ParsingThreadFunc(void* _arg);     // producer
     static void* ArbitratorThreadFunc(void* _arg);  // consumer and producer
     static void* FillingThreadFunc(void* _arg);     // consumer
 
-    parse_util::RunTimeDatabase<std::string, std::string> database_;  // todo: change database_ to be a map of size_t (hashed words) to size_t (hashed uuids)
-    std::vector<std::pair<std::string, std::unordered_map<std::string, uint32_t>>> unformatted_database_;
+    parse_util::RunTimeDatabase<size_t, size_t> database_;  // todo: change database_ to be a map of size_t (hashed words) to size_t (hashed uuids)
+    std::vector<std::pair<size_t, std::unordered_map<size_t, uint32_t>>> unformatted_database_;
     std::vector<std::filesystem::__cxx11::path> files_;
     size_t parsing_thread_count_;
     size_t filling_thread_count_;
@@ -101,7 +100,7 @@ class KaggleFinanceParseEngine : public parse_util::ParseEngine<std::string, std
     std::vector<sem_t> arbitrator_sem_vec_;
     pthread_mutex_t arbitrator_buffer_mutex_;
     pthread_mutex_t metadata_mutex_;
-    std::vector<pthread_mutex_t> alpha_buffer_mutex_;
+    std::vector<pthread_mutex_t> alpha_buffer_mutex_vec_;
 };
 
 }  // namespace search_engine
