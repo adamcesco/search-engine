@@ -25,7 +25,7 @@ search_engine::KaggleFinanceParseEngine::KaggleFinanceParseEngine(size_t parse_a
     }
 }
 
-void search_engine::KaggleFinanceParseEngine::Parse(std::string file_path, const std::unordered_set<std::string>* stop_words_ptr) {
+void search_engine::KaggleFinanceParseEngine::Parse(std::string file_path, const std::unordered_set<std::string>* const stop_words_ptr) {
     auto it = std::filesystem::recursive_directory_iterator(file_path);
     for (auto&& entry : it) {
         if (entry.is_regular_file() && entry.path().extension().string() == ".json") {
@@ -33,8 +33,8 @@ void search_engine::KaggleFinanceParseEngine::Parse(std::string file_path, const
         }
     }
 
-    this->unformatted_database_ = std::move(std::vector<std::pair<std::string, std::unordered_map<std::string, uint32_t>>>(files_.size()));
-    this->database_.text_index = std::move(std::vector<std::unordered_map<std::string, std::unordered_map<std::string, uint32_t>>>(this->filling_thread_count_));
+    this->unformatted_database_ = std::move(std::vector<std::pair<size_t, std::unordered_map<std::string, uint32_t>>>(files_.size()));
+    this->database_.text_index = std::move(std::vector<std::unordered_map<std::string, std::unordered_map<size_t, uint32_t>>>(this->filling_thread_count_));
     this->currently_parsing_ = true;
 
     ParsingThreadArgs parsing_arg_array[this->parsing_thread_count_];
@@ -82,21 +82,32 @@ void search_engine::KaggleFinanceParseEngine::Parse(std::string file_path, const
     pthread_join(filling_arbitrator_thread, NULL);
 }
 
-std::string search_engine::KaggleFinanceParseEngine::CleanToken(const char* token, std::optional<size_t> size) {
+std::string search_engine::KaggleFinanceParseEngine::CleanToken(const char* const token, std::optional<size_t> size) {
     std::string cleaned_token;
     if (size.has_value() == false) {
         size = strlen(token);
     }
     cleaned_token.resize(size.value());
     // check for unicode characters and lowercase token
-    for (size_t i = 0; i < size; i++) {
+    for (size_t i = 0, j = 0; i < size; i++, j++) {
         if (token[i] < 0 || token[i] > 127) {
             return {};
         }
-        cleaned_token[i] = tolower(token[i]);
+        if(token[i] == '\''){
+            j--;
+            continue;
+        }
+        cleaned_token[j] += tolower(token[i]);
     }
 
     return cleaned_token;
+}
+
+size_t search_engine::KaggleFinanceParseEngine::CleanID(const char* const id, std::optional<size_t> size) {
+    if (size.has_value() == false) {
+        size = strlen(id);
+    }
+    return std::hash<std::string_view>{}(std::string_view(id, size.value()));
 }
 
 void search_engine::KaggleFinanceParseEngine::ParseSingleArticle(const size_t file_subscript, const std::unordered_set<std::string>* stop_words_ptr) {
@@ -110,11 +121,11 @@ void search_engine::KaggleFinanceParseEngine::ParseSingleArticle(const size_t fi
     rapidjson::IStreamWrapper isw(input);
     doc.ParseStream(isw);
 
-    const char* delimeters = " \t\v\n\r,.?!;:\"/()";
-    std::string_view uuid = this->unformatted_database_[file_subscript].first = std::move(doc["uuid"].GetString());
+    const char* const delimeters = " \t\v\n\r,.?!;:\"/()";
+    size_t uuid = this->unformatted_database_[file_subscript].first = std::move(this->CleanID(doc["uuid"].GetString()));
 
     pthread_mutex_lock(&this->metadata_mutex_);
-    this->database_.id_map[uuid.data()] = this->files_[file_subscript].string();
+    this->database_.id_map[uuid] = this->files_[file_subscript].string();
     this->database_.site_index[doc["thread"]["site"].GetString()].emplace(uuid);
     this->database_.author_index[doc["author"].GetString()].emplace(uuid);
     this->database_.country_index[doc["thread"]["country"].GetString()].emplace(uuid);
@@ -162,7 +173,7 @@ void search_engine::KaggleFinanceParseEngine::ParseSingleArticle(const size_t fi
 }
 
 void* search_engine::KaggleFinanceParseEngine::ParsingThreadFunc(void* _arg) {
-    ParsingThreadArgs* thread_args = (ParsingThreadArgs*)_arg;
+    ParsingThreadArgs* const thread_args = (ParsingThreadArgs*)_arg;
     for (size_t i = thread_args->start; i < thread_args->end; i++) {
         thread_args->obj_ptr->ParseSingleArticle(i, thread_args->stop_words_ptr);
     }
@@ -171,7 +182,7 @@ void* search_engine::KaggleFinanceParseEngine::ParsingThreadFunc(void* _arg) {
 }
 
 void* search_engine::KaggleFinanceParseEngine::ArbitratorThreadFunc(void* _arg) {
-    search_engine::KaggleFinanceParseEngine* parse_engine = (search_engine::KaggleFinanceParseEngine*)_arg;
+    search_engine::KaggleFinanceParseEngine* const parse_engine = (search_engine::KaggleFinanceParseEngine*)_arg;
     while (parse_engine->currently_parsing_ == true || parse_engine->arbitrator_buffer_.empty() == false) {
         if (sem_trywait(&parse_engine->production_state_sem_) != 0) {
             continue;
@@ -203,7 +214,7 @@ void* search_engine::KaggleFinanceParseEngine::ArbitratorThreadFunc(void* _arg) 
 }
 
 void* search_engine::KaggleFinanceParseEngine::FillingThreadFunc(void* _arg) {
-    FillingThreadArgs* thread_args = (FillingThreadArgs*)_arg;
+    FillingThreadArgs* const thread_args = (FillingThreadArgs*)_arg;
     while (thread_args->obj_ptr->currently_parsing_ == true || thread_args->obj_ptr->alpha_buffer_[thread_args->buffer_subscript].empty() == false) {
         if (sem_trywait(&thread_args->obj_ptr->arbitrator_sem_vec_[thread_args->buffer_subscript]) != 0) {
             continue;
