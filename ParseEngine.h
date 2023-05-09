@@ -11,6 +11,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#include <optional>
 
 namespace search_engine {
 
@@ -20,7 +21,6 @@ namespace parse_util {
  * @tparam T The data type of the values to be indexed.
  * @tparam U The data type of the IDs of the sources you plan to store in the database.
  * @warning The use of this struct is not recommended outside of a child class of the ParseEngine class.
- * @format The format of the data stored in the database is as follows:
  */
 template <typename T, typename U>
 struct RunTimeDatabase {
@@ -36,6 +36,7 @@ struct RunTimeDatabase {
     std::unordered_map<T, std::unordered_set<U>> country_index;
 };
 
+template <typename T, typename U>
 class ParseEngine {
    public:
     /*!
@@ -45,20 +46,25 @@ class ParseEngine {
      */
     virtual void Parse(std::string file_path, const std::unordered_set<std::string>* stop_words_ptr = NULL) = 0;
 
+    virtual T CleanToken(char* token, std::optional<size_t> size = std::nullopt) = 0;
+
     /*!
      * @brief Returns the RunTimeDatabase owned by the invoked ParseEngine object.
      * @warning The return value should not be deleted, and the use of the return value should be restricted to the lifetime of the invoked ParseEngine object.
      */
-    virtual inline const RunTimeDatabase<std::string, std::string>* GetRunTimeDatabase() const = 0;
+    virtual inline const RunTimeDatabase<T, U>* GetRunTimeDatabase() const = 0;
+
+    virtual ~ParseEngine() = default;
 };
 
 }  // namespace parse_util
 
 /// @brief The `KaggleFinanceParseEngine` class should be used to parse the data found at https://www.kaggle.com/datasets/jeet2016/us-financial-news-articles
-class KaggleFinanceParseEngine : public parse_util::ParseEngine {
+class KaggleFinanceParseEngine : public parse_util::ParseEngine<std::string, std::string> {
    public:
     explicit KaggleFinanceParseEngine(size_t parse_amount, size_t fill_amount);
     void Parse(std::string file_path, const std::unordered_set<std::string>* stop_words = NULL) override;
+    std::string CleanToken(char* token, std::optional<size_t> size = std::nullopt) override;
     inline const parse_util::RunTimeDatabase<std::string, std::string>* GetRunTimeDatabase() const override { return &database_; };
 
    private:

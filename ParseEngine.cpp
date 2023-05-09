@@ -82,6 +82,23 @@ void search_engine::KaggleFinanceParseEngine::Parse(std::string file_path, const
     pthread_join(filling_arbitrator_thread, NULL);
 }
 
+std::string search_engine::KaggleFinanceParseEngine::CleanToken(char* token, std::optional<size_t> size) {
+    std::string cleaned_token;
+    if (size.has_value() == false) {
+        size = strlen(token);
+    }
+    cleaned_token.resize(size.value());
+    // check for unicode characters and lowercase token
+    for (size_t i = 0; i < size; i++) {
+        if (token[i] < 0 || token[i] > 127) {
+            return {};
+        }
+        cleaned_token[i] = tolower(token[i]);
+    }
+
+    return cleaned_token;
+}
+
 void search_engine::KaggleFinanceParseEngine::ParseSingleArticle(const size_t file_subscript, const std::unordered_set<std::string>* stop_words_ptr) {
     std::ifstream input(files_[file_subscript]);
     if (input.is_open() == false) {
@@ -126,26 +143,12 @@ void search_engine::KaggleFinanceParseEngine::ParseSingleArticle(const size_t fi
     while (token != NULL) {
         size_t token_length = strlen(token);
 
-        // check for unicode characters and lowercase token
-        bool unicode = false;
-        for (size_t i = 0; i < token_length; i++) {
-            if (token[i] < 0 || token[i] > 127) {
-                unicode = true;
-                break;
-            }
-            token[i] = tolower(token[i]);
-        }
-        if (unicode == true) {  // skips words with unicode characters
+        std::string clean = std::move(this->CleanToken(token, token_length));
+        if (clean.empty() == true || (stop_words_ptr != NULL && stop_words_ptr->find(clean) != stop_words_ptr->end())) {
             token = strtok_r(NULL, delimeters, &save_ptr);
             continue;
         }
-
-        if (stop_words_ptr != NULL && stop_words_ptr->find(token) != stop_words_ptr->end()) {
-            token = strtok_r(NULL, delimeters, &save_ptr);
-            continue;
-        }
-
-        auto iter = word_map.emplace(token, 0);
+        auto iter = word_map.emplace(std::move(clean), 0);
         iter.first->second++;
 
         token = strtok_r(NULL, delimeters, &save_ptr);
