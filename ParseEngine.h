@@ -44,9 +44,9 @@ class ParseEngine {
      * @param file_path The file path of the file or folder of files you desire to parse and fill a RunTimeDatabase object with.
      * @param stop_words_ptr An optional parameter that is a constant pointer to an unordered_set of stop words.
      */
-    virtual void Parse(std::string file_path, const std::unordered_set<std::string>* stop_words_ptr = NULL) = 0;
+    virtual void Parse(std::string file_path, const std::unordered_set<T>* stop_words_ptr = NULL) = 0;
 
-    virtual T CleanToken(char* token, std::optional<size_t> size = std::nullopt) = 0;
+    virtual T CleanToken(const char* token, std::optional<size_t> size = std::nullopt) = 0;
 
     /*!
      * @brief Returns the RunTimeDatabase owned by the invoked ParseEngine object.
@@ -64,7 +64,7 @@ class KaggleFinanceParseEngine : public parse_util::ParseEngine<std::string, std
    public:
     explicit KaggleFinanceParseEngine(size_t parse_amount, size_t fill_amount);
     void Parse(std::string file_path, const std::unordered_set<std::string>* stop_words = NULL) override;
-    std::string CleanToken(char* token, std::optional<size_t> size = std::nullopt) override;
+    std::string CleanToken(const char* token, std::optional<size_t> size = std::nullopt) override;
     inline const parse_util::RunTimeDatabase<std::string, std::string>* GetRunTimeDatabase() const override { return &database_; };
 
    private:

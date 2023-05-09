@@ -82,7 +82,7 @@ void search_engine::KaggleFinanceParseEngine::Parse(std::string file_path, const
     pthread_join(filling_arbitrator_thread, NULL);
 }
 
-std::string search_engine::KaggleFinanceParseEngine::CleanToken(char* token, std::optional<size_t> size) {
+std::string search_engine::KaggleFinanceParseEngine::CleanToken(const char* token, std::optional<size_t> size) {
     std::string cleaned_token;
     if (size.has_value() == false) {
         size = strlen(token);
