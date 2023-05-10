@@ -1,13 +1,13 @@
 #include <iostream>
 
-#include "SearchEngine.h"
 #include "KaggleFinanceParseEngine.h"
+#include "SearchEngine.h"
 
 int main(int argc, char** argv) {
     search_engine::KaggleFinanceParseEngine parseEngine(4, 3);
-    parseEngine.ParseData("../sample_kaggle_finance_data");
+    parseEngine.ParseData("../full_kaggle_finance_data");
     auto database_ptr = parseEngine.GetRunTimeDatabase();
-    //print contents of database
+    // print contents of database
     // std::cout << "text_index: " << std::endl;
     // for (auto&& map : database_ptr->text_index) {
     //     for (auto&& pair : map) {
@@ -17,6 +17,6 @@ int main(int argc, char** argv) {
     //         }
     //     }
     // }
-    
+
     return 0;
 }

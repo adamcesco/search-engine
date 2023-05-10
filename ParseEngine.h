@@ -22,13 +22,13 @@ struct RunTimeDatabase {
     std::unordered_map<T, std::string> id_map;                                       // uuid -> file path
     std::vector<std::unordered_map<U, std::unordered_map<T, uint32_t>>> text_index;  // word -> list of {uuid -> count}
     std::unordered_map<U, std::unordered_map<T, uint32_t>> title_index;
-    std::unordered_map<U, std::unordered_set<T>> site_index;
-    std::unordered_map<U, std::unordered_set<T>> language_index;
-    std::unordered_map<U, std::unordered_set<T>> location_index;
-    std::unordered_map<U, std::unordered_set<T>> person_index;
-    std::unordered_map<U, std::unordered_set<T>> organization_index;
-    std::unordered_map<U, std::unordered_set<T>> author_index;
-    std::unordered_map<U, std::unordered_set<T>> country_index;
+    std::unordered_map<V, std::unordered_set<T>> site_index;
+    std::unordered_map<V, std::unordered_set<T>> language_index;
+    std::unordered_map<V, std::unordered_set<T>> location_index;
+    std::unordered_map<V, std::unordered_set<T>> person_index;
+    std::unordered_map<V, std::unordered_set<T>> organization_index;
+    std::unordered_map<V, std::unordered_set<T>> author_index;
+    std::unordered_map<V, std::unordered_set<T>> country_index;
 };
 
 /*!
