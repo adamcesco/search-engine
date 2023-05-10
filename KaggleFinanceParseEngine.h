@@ -12,14 +12,17 @@
 
 namespace search_engine {
 
-/// @brief The `KaggleFinanceParseEngine` class should be used to parse the data found at https://www.kaggle.com/datasets/jeet2016/us-financial-news-articles
+/*! 
+* @brief The KaggleFinanceParseEngine class should be used to parse the data found at https://www.kaggle.com/datasets/jeet2016/us-financial-news-articles
+* @attention The KaggleFinanceParseEngine is a child of the search_engine::parse_util::ParseEngine<size_t, size_t, std::string> classs.
+*/
 class KaggleFinanceParseEngine : public parse_util::ParseEngine<size_t, size_t, std::string> {
    public:
     explicit KaggleFinanceParseEngine(size_t parse_amount, size_t fill_amount);
     void ParseData(std::string file_path, const std::unordered_set<size_t>* const stop_words = NULL) override;
-    size_t CleanID(const char* const id, std::optional<size_t> size = std::nullopt) override;
-    size_t CleanValue(const char* const token, std::optional<size_t> size = std::nullopt) override;
-    std::string CleanMetaData(const char* const token, std::optional<size_t> size = std::nullopt) override;
+    size_t CleanID(const char* const id_token, std::optional<size_t> size = std::nullopt) override;
+    size_t CleanValue(const char* const value_token, std::optional<size_t> size = std::nullopt) override;
+    std::string CleanMetaData(const char* const metadata_token, std::optional<size_t> size = std::nullopt) override;
     inline const parse_util::RunTimeDatabase<size_t, size_t, std::string>* const GetRunTimeDatabase() const override { return &database_; };
 
    private:
@@ -40,9 +43,9 @@ class KaggleFinanceParseEngine : public parse_util::ParseEngine<size_t, size_t, 
     };
 
     void ParseSingleArticle(const size_t file_subscript, const std::unordered_set<size_t>* const stop_words_ptr);
-    static void* ParsingThreadFunc(void* _arg);     // producer
-    static void* ArbitratorThreadFunc(void* _arg);  // consumer and producer
-    static void* FillingThreadFunc(void* _arg);     // consumer
+    static void* ParsingThreadFunc(void* _arg);
+    static void* ArbitratorThreadFunc(void* _arg);
+    static void* FillingThreadFunc(void* _arg);
 
     parse_util::RunTimeDatabase<size_t, size_t, std::string> database_;  // todo: change database_ to be a map of size_t (hashed words) to size_t (hashed uuids)
     std::vector<std::pair<size_t, std::unordered_map<size_t, uint32_t>>> unformatted_database_;

@@ -82,47 +82,47 @@ void search_engine::KaggleFinanceParseEngine::ParseData(std::string file_path, c
     pthread_join(filling_arbitrator_thread, NULL);
 }
 
-size_t search_engine::KaggleFinanceParseEngine::CleanID(const char* const id, std::optional<size_t> size) {
-    return std::hash<std::string_view>{}(std::string_view(id));
+size_t search_engine::KaggleFinanceParseEngine::CleanID(const char* const id_token, std::optional<size_t> size) {
+    return std::hash<std::string_view>{}(std::string_view(id_token));
 }
 
-size_t search_engine::KaggleFinanceParseEngine::CleanValue(const char* const token, std::optional<size_t> size) {
+size_t search_engine::KaggleFinanceParseEngine::CleanValue(const char* const value_token, std::optional<size_t> size) {
     std::string cleaned_token;
     if (size.has_value() == false) {
-        size = strlen(token);
+        size = strlen(value_token);
     }
     cleaned_token.resize(size.value());
     // check for unicode characters and lowercase token
     for (size_t i = 0, j = 0; i < size; i++, j++) {
-        if (token[i] < 0 || token[i] > 127) {
+        if (value_token[i] < 0 || value_token[i] > 127) {
             return std::string::npos;
         }
-        if (token[i] == '\'') {
+        if (value_token[i] == '\'') {
             j--;
             continue;
         }
-        cleaned_token[j] = tolower(token[i]);
+        cleaned_token[j] = tolower(value_token[i]);
     }
 
     return std::hash<std::string_view>{}(std::string_view(cleaned_token));
 }
 
-std::string search_engine::KaggleFinanceParseEngine::CleanMetaData(const char* const token, std::optional<size_t> size) {
+std::string search_engine::KaggleFinanceParseEngine::CleanMetaData(const char* const metadata_token, std::optional<size_t> size) {
     std::string cleaned_token;
     if (size.has_value() == false) {
-        size = strlen(token);
+        size = strlen(metadata_token);
     }
     cleaned_token.resize(size.value());
     // check for unicode characters and lowercase token
     for (size_t i = 0, j = 0; i < size; i++, j++) {
-        if (token[i] < 0 || token[i] > 127) {
+        if (metadata_token[i] < 0 || metadata_token[i] > 127) {
             return {};
         }
-        if (token[i] == '\'') {
+        if (metadata_token[i] == '\'') {
             j--;
             continue;
         }
-        cleaned_token[j] = tolower(token[i]);
+        cleaned_token[j] = tolower(metadata_token[i]);
     }
 
     return cleaned_token;

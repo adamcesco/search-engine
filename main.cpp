@@ -5,7 +5,7 @@
 
 int main(int argc, char** argv) {
     search_engine::KaggleFinanceParseEngine parseEngine(4, 3);
-    parseEngine.ParseData("../full_kaggle_finance_data");
+    parseEngine.ParseData("../sample_kaggle_finance_data");
     auto database_ptr = parseEngine.GetRunTimeDatabase();
     // print contents of database
     // std::cout << "text_index: " << std::endl;
@@ -17,6 +17,5 @@ int main(int argc, char** argv) {
     //         }
     //     }
     // }
-
     return 0;
 }
