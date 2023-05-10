@@ -34,7 +34,7 @@ void search_engine::KaggleFinanceParseEngine::ParseData(std::string file_path, c
     }
 
     this->unformatted_database_ = std::move(std::vector<std::pair<size_t, std::unordered_map<size_t, uint32_t>>>(files_.size()));
-    this->database_.text_index = std::move(std::vector<std::unordered_map<size_t, std::unordered_map<size_t, uint32_t>>>(this->filling_thread_count_));
+    this->database_.value_index = std::move(std::vector<std::unordered_map<size_t, std::unordered_map<size_t, uint32_t>>>(this->filling_thread_count_));
     this->currently_parsing_ = true;
 
     ParsingThreadArgs parsing_arg_array[this->parsing_thread_count_];
@@ -237,7 +237,7 @@ void* search_engine::KaggleFinanceParseEngine::FillingThreadFunc(void* _arg) {
         thread_args->obj_ptr->alpha_buffer_[thread_args->buffer_subscript].pop();
         pthread_mutex_unlock(&thread_args->obj_ptr->alpha_buffer_mutex_[thread_args->buffer_subscript]);
 
-        thread_args->obj_ptr->database_.text_index[thread_args->buffer_subscript][std::move(word_args.word)].emplace(thread_args->obj_ptr->unformatted_database_[word_args.file_subscript].first, word_args.count);
+        thread_args->obj_ptr->database_.value_index[thread_args->buffer_subscript][word_args.word].emplace(thread_args->obj_ptr->unformatted_database_[word_args.file_subscript].first, word_args.count);
     }
     return NULL;
 }

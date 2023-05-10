@@ -20,7 +20,7 @@ namespace parse_util {
 template <typename T, typename U, typename V = U>
 struct RunTimeDatabase {
     std::unordered_map<T, std::string> id_map;                                       // uuid -> file path
-    std::vector<std::unordered_map<U, std::unordered_map<T, uint32_t>>> text_index;  // word -> list of {uuid -> count}
+    std::vector<std::unordered_map<U, std::unordered_map<T, uint32_t>>> value_index;  // word -> list of {uuid -> count}
     std::unordered_map<U, std::unordered_map<T, uint32_t>> title_index;
     std::unordered_map<V, std::unordered_set<T>> site_index;
     std::unordered_map<V, std::unordered_set<T>> language_index;
@@ -47,7 +47,7 @@ class ParseEngine {
     virtual void ParseData(std::string file_path, const std::unordered_set<U>* const stop_words_ptr = NULL) = 0;
 
     /*!
-     * @brief Cleans the given char* id_token and returns the cleaned id_token in the T data type. This function should be used when parsing a file to store the id of the file in the RunTimeDatabase object, and it should be used when querying the RunTimeDatabase object.
+     * @brief Cleans the given char* id_token and returns the cleaned id_token in the T data type. This function should be used when parsing a file to clean the id of a source, and it should be used when querying the RunTimeDatabase object.
      * @param id_token The char* id_token to be cleaned.
      * @param size The size of the char* id_token to be cleaned. This parameter is optional, and defaults to std::nullopt.
      * @return The cleaned id_token in the T data type.
@@ -55,7 +55,7 @@ class ParseEngine {
     virtual T CleanID(const char* const id_token, std::optional<size_t> size = std::nullopt) = 0;
 
     /*!
-     * @brief Cleans the given char* value_token and returns the cleaned value_token in the U data type. This function should be used when parsing a file to store the values of the file in the RunTimeDatabase object, and it should be used when querying the RunTimeDatabase object.
+     * @brief Cleans the given char* value_token and returns the cleaned value_token in the U data type. This function should be used when parsing a file to clean the value tokens in a source, and it should be used when querying the RunTimeDatabase object.
      * @param value_token The char* value_token to be cleaned.
      * @param size The size of the char* value_token to be cleaned. This parameter is optional, and defaults to std::nullopt.
      * @return The cleaned value_token in the U data type.
@@ -63,7 +63,7 @@ class ParseEngine {
     virtual U CleanValue(const char* const value_token, std::optional<size_t> size = std::nullopt) = 0;
 
     /*!
-     * @brief Cleans the given char* metadata_token and returns the cleaned metadata_token in the V data type. This function should be used when parsing a file to store the metadata of the file in the RunTimeDatabase object, and it should be used when querying the RunTimeDatabase object.
+     * @brief Cleans the given char* metadata_token and returns the cleaned metadata_token in the V data type. This function should be used when parsing a file to clean then metadata tokens in a source, and it should be used when querying the RunTimeDatabase object.
      * @param metadata_token The char* metadata_token to be cleaned.
      * @param size The size of the char* metadata_token to be cleaned. This parameter is optional, and defaults to std::nullopt.
      * @return The cleaned metadata_token in the V data type.
