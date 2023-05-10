@@ -25,7 +25,7 @@ search_engine::KaggleFinanceParseEngine::KaggleFinanceParseEngine(size_t parse_a
     }
 }
 
-void search_engine::KaggleFinanceParseEngine::Parse(std::string file_path, const std::unordered_set<std::string>* const stop_words_ptr) {
+void search_engine::KaggleFinanceParseEngine::ParseData(std::string file_path, const std::unordered_set<std::string>* const stop_words_ptr) {
     auto it = std::filesystem::recursive_directory_iterator(file_path);
     for (auto&& entry : it) {
         if (entry.is_regular_file() && entry.path().extension().string() == ".json") {
@@ -89,7 +89,28 @@ size_t search_engine::KaggleFinanceParseEngine::CleanID(const char* const id, st
     return std::hash<std::string_view>{}(std::string_view(id, size.value()));
 }
 
-std::string search_engine::KaggleFinanceParseEngine::CleanToken(const char* const token, std::optional<size_t> size) {
+std::string search_engine::KaggleFinanceParseEngine::CleanValue(const char* const token, std::optional<size_t> size) {
+    std::string cleaned_token;
+    if (size.has_value() == false) {
+        size = strlen(token);
+    }
+    cleaned_token.resize(size.value());
+    // check for unicode characters and lowercase token
+    for (size_t i = 0, j = 0; i < size; i++, j++) {
+        if (token[i] < 0 || token[i] > 127) {
+            return {};
+        }
+        if (token[i] == '\'') {
+            j--;
+            continue;
+        }
+        cleaned_token[j] += tolower(token[i]);
+    }
+
+    return cleaned_token;
+}
+
+std::string search_engine::KaggleFinanceParseEngine::CleanMetaData(const char* const token, std::optional<size_t> size) {
     std::string cleaned_token;
     if (size.has_value() == false) {
         size = strlen(token);
@@ -126,24 +147,24 @@ void search_engine::KaggleFinanceParseEngine::ParseSingleArticle(const size_t fi
 
     pthread_mutex_lock(&this->metadata_mutex_);
     this->database_.id_map[uuid] = this->files_[file_subscript].string();
-    this->database_.site_index[doc["thread"]["site"].GetString()].emplace(uuid);
-    this->database_.author_index[doc["author"].GetString()].emplace(uuid);
-    this->database_.country_index[doc["thread"]["country"].GetString()].emplace(uuid);
-    this->database_.language_index[doc["language"].GetString()].emplace(uuid);
+    this->database_.site_index[std::move(this->CleanMetaData(doc["thread"]["site"].GetString()))].emplace(uuid);
+    this->database_.author_index[std::move(this->CleanMetaData(doc["author"].GetString()))].emplace(uuid);
+    this->database_.country_index[std::move(this->CleanMetaData(doc["thread"]["country"].GetString()))].emplace(uuid);
+    this->database_.language_index[std::move(this->CleanMetaData(doc["language"].GetString()))].emplace(uuid);
 
     const auto& people_array = doc["entities"]["persons"].GetArray();
     for (const auto& person : people_array) {
-        this->database_.person_index[person["name"].GetString()].emplace(uuid);
+        this->database_.person_index[std::move(this->CleanMetaData(person["name"].GetString()))].emplace(uuid);
     }
 
     const auto& location_array = doc["entities"]["locations"].GetArray();
     for (const auto& location : location_array) {
-        this->database_.location_index[location["name"].GetString()].emplace(uuid);
+        this->database_.location_index[std::move(this->CleanMetaData(location["name"].GetString()))].emplace(uuid);
     }
 
     const auto& organization_array = doc["entities"]["organizations"].GetArray();
     for (const auto& organization : organization_array) {
-        this->database_.organization_index[organization["name"].GetString()].emplace(uuid);
+        this->database_.organization_index[std::move(this->CleanMetaData(organization["name"].GetString()))].emplace(uuid);
     }
     pthread_mutex_unlock(&this->metadata_mutex_);
 
@@ -154,7 +175,7 @@ void search_engine::KaggleFinanceParseEngine::ParseSingleArticle(const size_t fi
     while (token != NULL) {
         size_t token_length = strlen(token);
 
-        std::string cleaned_token = std::move(this->CleanToken(token, token_length));
+        std::string cleaned_token = std::move(this->CleanValue(token, token_length));
         if (cleaned_token.empty() == true || (stop_words_ptr != NULL && stop_words_ptr->find(cleaned_token) != stop_words_ptr->end())) {
             token = strtok_r(NULL, delimeters, &save_ptr);
             continue;

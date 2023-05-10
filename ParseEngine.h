@@ -44,10 +44,11 @@ class ParseEngine {
      * @param file_path The file path of the file or folder of files you desire to parse and fill a RunTimeDatabase object with.
      * @param stop_words_ptr An optional parameter that is a constant pointer to an unordered_set of stop words.
      */
-    virtual void Parse(std::string file_path, const std::unordered_set<U>* const stop_words_ptr = NULL) = 0;
+    virtual void ParseData(std::string file_path, const std::unordered_set<U>* const stop_words_ptr = NULL) = 0;
 
     virtual T CleanID(const char* const id, std::optional<size_t> size = std::nullopt) = 0;
-    virtual U CleanToken(const char* const token, std::optional<size_t> size = std::nullopt) = 0;
+    virtual U CleanValue(const char* const token, std::optional<size_t> size = std::nullopt) = 0;
+    virtual V CleanMetaData(const char* const token, std::optional<size_t> size = std::nullopt) = 0;
 
     /*!
      * @brief Returns the RunTimeDatabase owned by the invoked ParseEngine object.

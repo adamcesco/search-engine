@@ -16,9 +16,10 @@ namespace search_engine {
 class KaggleFinanceParseEngine : public parse_util::ParseEngine<size_t, std::string> {
    public:
     explicit KaggleFinanceParseEngine(size_t parse_amount, size_t fill_amount);
-    void Parse(std::string file_path, const std::unordered_set<std::string>* const stop_words = NULL) override;
+    void ParseData(std::string file_path, const std::unordered_set<std::string>* const stop_words = NULL) override;
     size_t CleanID(const char* const id, std::optional<size_t> size = std::nullopt) override;
-    std::string CleanToken(const char* const token, std::optional<size_t> size = std::nullopt) override;
+    std::string CleanValue(const char* const token, std::optional<size_t> size = std::nullopt) override;
+    std::string CleanMetaData(const char* const token, std::optional<size_t> size = std::nullopt) override;
     inline const parse_util::RunTimeDatabase<size_t, std::string>* const GetRunTimeDatabase() const override { return &database_; };
 
    private:
