@@ -1,42 +1,42 @@
 #ifndef SEARCH_ENGINE_PROJECT_INDEXENGINE_H_
 #define SEARCH_ENGINE_PROJECT_INDEXENGINE_H_
 
-#include <semaphore.h>
-
-#include <cstdint>
-#include <filesystem>
-#include <optional>
-#include <queue>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
-#include <optional>
 
 namespace search_engine {
 
 namespace parse_util {
 
-/*! @brief A struct that contains all of the indexes that are used to store the data parsed from a file by a ParseEngine object.
- * @tparam T The data type you wish to use to store the values to be indexed.
- * @tparam U The data type you wish to use to store the ID of each source.
+/*!
+ * @brief A struct that contains all of the indexes that are used to store the data parsed from a file by a ParseEngine object.
+ * @tparam T The data type you wish to use to store the ID of each source.
+ * @tparam U The data type you wish to use to store the values to be indexed.
+ * @tparam V The data type you wish to use to store the meta-data of each source. This template parameter is optional, and defaults to the same type as the U template parameter.
  * @warning The use of this struct is not recommended outside of a child class of the ParseEngine class.
  */
-template <typename T, typename U>
+template <typename T, typename U, typename V = U>
 struct RunTimeDatabase {
-    std::unordered_map<U, std::string> id_map;                                       // uuid -> file path
-    std::vector<std::unordered_map<T, std::unordered_map<U, uint32_t>>> text_index;  // word -> list of {uuid -> count}
-    std::unordered_map<T, std::unordered_map<U, uint32_t>> title_index;
-    std::unordered_map<T, std::unordered_set<U>> site_index;
-    std::unordered_map<T, std::unordered_set<U>> language_index;
-    std::unordered_map<T, std::unordered_set<U>> location_index;
-    std::unordered_map<T, std::unordered_set<U>> person_index;
-    std::unordered_map<T, std::unordered_set<U>> organization_index;
-    std::unordered_map<T, std::unordered_set<U>> author_index;
-    std::unordered_map<T, std::unordered_set<U>> country_index;
+    std::unordered_map<T, std::string> id_map;                                       // uuid -> file path
+    std::vector<std::unordered_map<U, std::unordered_map<T, uint32_t>>> text_index;  // word -> list of {uuid -> count}
+    std::unordered_map<U, std::unordered_map<T, uint32_t>> title_index;
+    std::unordered_map<U, std::unordered_set<T>> site_index;
+    std::unordered_map<U, std::unordered_set<T>> language_index;
+    std::unordered_map<U, std::unordered_set<T>> location_index;
+    std::unordered_map<U, std::unordered_set<T>> person_index;
+    std::unordered_map<U, std::unordered_set<T>> organization_index;
+    std::unordered_map<U, std::unordered_set<T>> author_index;
+    std::unordered_map<U, std::unordered_set<T>> country_index;
 };
 
-template <typename T, typename U>
+/*!
+ * @tparam T The data type you wish to use to store the ID of each source.
+ * @tparam U The data type you wish to use to store the values to be indexed.
+ * @tparam V The data type you wish to use to store the meta-data of each source.
+ */
+template <typename T, typename U, typename V = U>
 class ParseEngine {
    public:
     /*!
@@ -44,68 +44,21 @@ class ParseEngine {
      * @param file_path The file path of the file or folder of files you desire to parse and fill a RunTimeDatabase object with.
      * @param stop_words_ptr An optional parameter that is a constant pointer to an unordered_set of stop words.
      */
-    virtual void Parse(std::string file_path, const std::unordered_set<T>* const stop_words_ptr = NULL) = 0;
+    virtual void Parse(std::string file_path, const std::unordered_set<U>* const stop_words_ptr = NULL) = 0;
 
-    virtual T CleanToken(const char* const token, std::optional<size_t> size = std::nullopt) = 0;
-    virtual U CleanID(const char* const id, std::optional<size_t> size = std::nullopt) = 0;
+    virtual T CleanID(const char* const id, std::optional<size_t> size = std::nullopt) = 0;
+    virtual U CleanToken(const char* const token, std::optional<size_t> size = std::nullopt) = 0;
 
     /*!
      * @brief Returns the RunTimeDatabase owned by the invoked ParseEngine object.
      * @warning The return value should not be deleted, and the use of the return value should be restricted to the lifetime of the invoked ParseEngine object.
      */
-    virtual inline const RunTimeDatabase<T, U>* const GetRunTimeDatabase() const = 0;
+    virtual inline const RunTimeDatabase<T, U, V>* const GetRunTimeDatabase() const = 0;
 
     virtual ~ParseEngine() = default;
 };
 
 }  // namespace parse_util
-
-/// @brief The `KaggleFinanceParseEngine` class should be used to parse the data found at https://www.kaggle.com/datasets/jeet2016/us-financial-news-articles
-class KaggleFinanceParseEngine : public parse_util::ParseEngine<std::string, size_t> {
-   public:
-    explicit KaggleFinanceParseEngine(size_t parse_amount, size_t fill_amount);
-    void Parse(std::string file_path, const std::unordered_set<std::string>* const stop_words = NULL) override;
-    std::string CleanToken(const char* const token, std::optional<size_t> size = std::nullopt) override;
-    size_t CleanID(const char* const id, std::optional<size_t> size = std::nullopt) override;
-    inline const parse_util::RunTimeDatabase<std::string, size_t>* const GetRunTimeDatabase() const override { return &database_; };
-
-   private:
-    struct ParsingThreadArgs {
-        KaggleFinanceParseEngine* obj_ptr;
-        const std::unordered_set<std::string>* stop_words_ptr;
-        size_t start;
-        size_t end;
-    };
-    struct FillingThreadArgs {
-        KaggleFinanceParseEngine* obj_ptr;
-        size_t buffer_subscript;
-    };
-    struct AlphaBufferArgs {
-        size_t file_subscript;
-        std::string word;
-        uint32_t count;
-    };
-
-    void ParseSingleArticle(const size_t file_subscript, const std::unordered_set<std::string>* const stop_words_ptr);
-    static void* ParsingThreadFunc(void* _arg);     // producer
-    static void* ArbitratorThreadFunc(void* _arg);  // consumer and producer
-    static void* FillingThreadFunc(void* _arg);     // consumer
-
-    parse_util::RunTimeDatabase<std::string, size_t> database_;  // todo: change database_ to be a map of size_t (hashed words) to size_t (hashed uuids)
-    std::vector<std::pair<size_t, std::unordered_map<std::string, uint32_t>>> unformatted_database_;
-    std::vector<std::filesystem::__cxx11::path> files_;
-    size_t parsing_thread_count_;
-    size_t filling_thread_count_;
-    std::queue<size_t> arbitrator_buffer_;
-    std::vector<std::queue<AlphaBufferArgs>> alpha_buffer_;
-    bool currently_parsing_ = false;
-    sem_t production_state_sem_;
-    std::vector<sem_t> arbitrator_sem_vec_;
-    pthread_mutex_t arbitrator_buffer_mutex_;
-    pthread_mutex_t metadata_mutex_;
-    std::vector<pthread_mutex_t> alpha_buffer_mutex_;
-};
-
 }  // namespace search_engine
 
 #endif  // SEARCH_ENGINE_PROJECT_INDEXENGINE_H_

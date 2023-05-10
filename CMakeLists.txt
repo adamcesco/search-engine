@@ -5,7 +5,7 @@ SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
 include(CTest)
 enable_testing()
 
-add_executable(search-engine-project main.cpp ParseEngine.cpp)
+add_executable(search-engine-project main.cpp KaggleFinanceParseEngine.cpp)
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})

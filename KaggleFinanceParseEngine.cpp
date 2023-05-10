@@ -1,4 +1,4 @@
-#include "ParseEngine.h"
+#include "KaggleFinanceParseEngine.h"
 
 #include <pthread.h>
 
@@ -82,6 +82,13 @@ void search_engine::KaggleFinanceParseEngine::Parse(std::string file_path, const
     pthread_join(filling_arbitrator_thread, NULL);
 }
 
+size_t search_engine::KaggleFinanceParseEngine::CleanID(const char* const id, std::optional<size_t> size) {
+    if (size.has_value() == false) {
+        size = strlen(id);
+    }
+    return std::hash<std::string_view>{}(std::string_view(id, size.value()));
+}
+
 std::string search_engine::KaggleFinanceParseEngine::CleanToken(const char* const token, std::optional<size_t> size) {
     std::string cleaned_token;
     if (size.has_value() == false) {
@@ -93,7 +100,7 @@ std::string search_engine::KaggleFinanceParseEngine::CleanToken(const char* cons
         if (token[i] < 0 || token[i] > 127) {
             return {};
         }
-        if(token[i] == '\''){
+        if (token[i] == '\'') {
             j--;
             continue;
         }
@@ -103,15 +110,8 @@ std::string search_engine::KaggleFinanceParseEngine::CleanToken(const char* cons
     return cleaned_token;
 }
 
-size_t search_engine::KaggleFinanceParseEngine::CleanID(const char* const id, std::optional<size_t> size) {
-    if (size.has_value() == false) {
-        size = strlen(id);
-    }
-    return std::hash<std::string_view>{}(std::string_view(id, size.value()));
-}
-
 void search_engine::KaggleFinanceParseEngine::ParseSingleArticle(const size_t file_subscript, const std::unordered_set<std::string>* stop_words_ptr) {
-    std::ifstream input(files_[file_subscript]);
+    std::ifstream input(this->files_[file_subscript]);
     if (input.is_open() == false) {
         std::cerr << "cannot open file: " << this->files_[file_subscript].string() << std::endl;
         return;
@@ -154,12 +154,12 @@ void search_engine::KaggleFinanceParseEngine::ParseSingleArticle(const size_t fi
     while (token != NULL) {
         size_t token_length = strlen(token);
 
-        std::string clean = std::move(this->CleanToken(token, token_length));
-        if (clean.empty() == true || (stop_words_ptr != NULL && stop_words_ptr->find(clean) != stop_words_ptr->end())) {
+        std::string cleaned_token = std::move(this->CleanToken(token, token_length));
+        if (cleaned_token.empty() == true || (stop_words_ptr != NULL && stop_words_ptr->find(cleaned_token) != stop_words_ptr->end())) {
             token = strtok_r(NULL, delimeters, &save_ptr);
             continue;
         }
-        auto iter = word_map.emplace(std::move(clean), 0);
+        auto iter = word_map.emplace(std::move(cleaned_token), 0);
         iter.first->second++;
 
         token = strtok_r(NULL, delimeters, &save_ptr);
