@@ -8,18 +8,19 @@
 #include <optional>
 #include <queue>
 
-#include "ParseEngine.h"
+#include "SourceEngine.h"
 
 namespace search_engine {
 
 /*! 
-* @brief The KaggleFinanceParseEngine class should be used to parse the data found at https://www.kaggle.com/datasets/jeet2016/us-financial-news-articles
-* @attention The KaggleFinanceParseEngine is a child of the search_engine::parse_util::ParseEngine<size_t, size_t, std::string> classs.
+* @brief The KaggleFinanceEngine class should be used to parse the data found at https://www.kaggle.com/datasets/jeet2016/us-financial-news-articles
+* @attention The KaggleFinanceEngine is a child of the search_engine::parse_util::SourceEngine<size_t, size_t, std::string> classs.
 */
-class KaggleFinanceParseEngine : public parse_util::ParseEngine<size_t, size_t, std::string> {
+class KaggleFinanceEngine : public parse_util::SourceEngine<size_t, size_t, std::string> {
    public:
-    explicit KaggleFinanceParseEngine(size_t parse_amount, size_t fill_amount);
-    void ParseData(std::string file_path, const std::unordered_set<size_t>* const stop_words = NULL) override;
+    explicit KaggleFinanceEngine(size_t parse_amount, size_t fill_amount);
+    void ParseSources(std::string file_path, const std::unordered_set<size_t>* const stop_words = NULL) override;
+    void DisplaySource(std::string file_path, bool just_header) override;
     size_t CleanID(const char* const id_token, std::optional<size_t> size = std::nullopt) override;
     size_t CleanValue(const char* const value_token, std::optional<size_t> size = std::nullopt) override;
     std::string CleanMetaData(const char* const metadata_token, std::optional<size_t> size = std::nullopt) override;
@@ -27,13 +28,13 @@ class KaggleFinanceParseEngine : public parse_util::ParseEngine<size_t, size_t, 
 
    private:
     struct ParsingThreadArgs {
-        KaggleFinanceParseEngine* obj_ptr;
+        KaggleFinanceEngine* obj_ptr;
         const std::unordered_set<size_t>* stop_words_ptr;
         size_t start;
         size_t end;
     };
     struct FillingThreadArgs {
-        KaggleFinanceParseEngine* obj_ptr;
+        KaggleFinanceEngine* obj_ptr;
         size_t buffer_subscript;
     };
     struct AlphaBufferArgs {

@@ -1,4 +1,4 @@
-#include "KaggleFinanceParseEngine.h"
+#include "KaggleFinanceSourceEngine.h"
 
 #include <pthread.h>
 
@@ -10,7 +10,7 @@
 #include "rapidjson/document.h"
 #include "rapidjson/istreamwrapper.h"
 
-search_engine::KaggleFinanceParseEngine::KaggleFinanceParseEngine(size_t parse_amount, size_t fill_amount) : parsing_thread_count_(parse_amount), filling_thread_count_(fill_amount) {
+search_engine::KaggleFinanceEngine::KaggleFinanceEngine(size_t parse_amount, size_t fill_amount) : parsing_thread_count_(parse_amount), filling_thread_count_(fill_amount) {
     sem_init(&this->production_state_sem_, 1, 0);
     pthread_mutex_init(&arbitrator_buffer_mutex_, NULL);
     pthread_mutex_init(&metadata_mutex_, NULL);
@@ -25,7 +25,7 @@ search_engine::KaggleFinanceParseEngine::KaggleFinanceParseEngine(size_t parse_a
     }
 }
 
-void search_engine::KaggleFinanceParseEngine::ParseData(std::string file_path, const std::unordered_set<size_t>* const stop_words_ptr) {
+void search_engine::KaggleFinanceEngine::ParseSources(std::string file_path, const std::unordered_set<size_t>* const stop_words_ptr) {
     auto it = std::filesystem::recursive_directory_iterator(file_path);
     for (auto&& entry : it) {
         if (entry.is_regular_file() && entry.path().extension().string() == ".json") {
@@ -82,11 +82,30 @@ void search_engine::KaggleFinanceParseEngine::ParseData(std::string file_path, c
     pthread_join(filling_arbitrator_thread, NULL);
 }
 
-size_t search_engine::KaggleFinanceParseEngine::CleanID(const char* const id_token, std::optional<size_t> size) {
+void search_engine::KaggleFinanceEngine::DisplaySource(std::string file_path, bool just_header) {
+    std::ifstream ifs(file_path);
+    rapidjson::IStreamWrapper isw(ifs);
+    rapidjson::Document doc;
+    doc.ParseStream(isw);
+
+    if (just_header == false) {
+        std::cout << "Header: " << std::endl;
+    }
+
+    std::cout << doc["thread"]["title"].GetString() << " || " << doc["thread"]["country"].GetString() << " || " << doc["thread"]["site"].GetString() << std::endl
+              << std::endl;
+
+    if (just_header == false) {
+        std::cout << "Data: " << std::endl;
+        std::cout << doc["text"].GetString() << std::endl;
+    }
+}
+
+size_t search_engine::KaggleFinanceEngine::CleanID(const char* const id_token, std::optional<size_t> size) {
     return std::hash<std::string_view>{}(std::string_view(id_token));
 }
 
-size_t search_engine::KaggleFinanceParseEngine::CleanValue(const char* const value_token, std::optional<size_t> size) {
+size_t search_engine::KaggleFinanceEngine::CleanValue(const char* const value_token, std::optional<size_t> size) {
     std::string cleaned_token;
     if (size.has_value() == false) {
         size = strlen(value_token);
@@ -107,7 +126,7 @@ size_t search_engine::KaggleFinanceParseEngine::CleanValue(const char* const val
     return std::hash<std::string_view>{}(std::string_view(cleaned_token));
 }
 
-std::string search_engine::KaggleFinanceParseEngine::CleanMetaData(const char* const metadata_token, std::optional<size_t> size) {
+std::string search_engine::KaggleFinanceEngine::CleanMetaData(const char* const metadata_token, std::optional<size_t> size) {
     std::string cleaned_token;
     if (size.has_value() == false) {
         size = strlen(metadata_token);
@@ -128,7 +147,7 @@ std::string search_engine::KaggleFinanceParseEngine::CleanMetaData(const char* c
     return cleaned_token;
 }
 
-void search_engine::KaggleFinanceParseEngine::ParseSingleArticle(const size_t file_subscript, const std::unordered_set<size_t>* stop_words_ptr) {
+void search_engine::KaggleFinanceEngine::ParseSingleArticle(const size_t file_subscript, const std::unordered_set<size_t>* stop_words_ptr) {
     std::ifstream input(this->files_[file_subscript]);
     if (input.is_open() == false) {
         std::cerr << "cannot open file: " << this->files_[file_subscript].string() << std::endl;
@@ -204,7 +223,7 @@ void search_engine::KaggleFinanceParseEngine::ParseSingleArticle(const size_t fi
     sem_post(&this->production_state_sem_);
 }
 
-void* search_engine::KaggleFinanceParseEngine::ParsingThreadFunc(void* _arg) {
+void* search_engine::KaggleFinanceEngine::ParsingThreadFunc(void* _arg) {
     ParsingThreadArgs* const thread_args = (ParsingThreadArgs*)_arg;
     for (size_t i = thread_args->start; i < thread_args->end; i++) {
         thread_args->obj_ptr->ParseSingleArticle(i, thread_args->stop_words_ptr);
@@ -213,8 +232,8 @@ void* search_engine::KaggleFinanceParseEngine::ParsingThreadFunc(void* _arg) {
     return NULL;
 }
 
-void* search_engine::KaggleFinanceParseEngine::ArbitratorThreadFunc(void* _arg) {
-    search_engine::KaggleFinanceParseEngine* const parse_engine = (search_engine::KaggleFinanceParseEngine*)_arg;
+void* search_engine::KaggleFinanceEngine::ArbitratorThreadFunc(void* _arg) {
+    search_engine::KaggleFinanceEngine* const parse_engine = (search_engine::KaggleFinanceEngine*)_arg;
     while (parse_engine->currently_parsing_ == true || parse_engine->arbitrator_buffer_.empty() == false) {
         if (sem_trywait(&parse_engine->production_state_sem_) != 0) {
             continue;
@@ -240,7 +259,7 @@ void* search_engine::KaggleFinanceParseEngine::ArbitratorThreadFunc(void* _arg) 
     return NULL;
 }
 
-void* search_engine::KaggleFinanceParseEngine::FillingThreadFunc(void* _arg) {
+void* search_engine::KaggleFinanceEngine::FillingThreadFunc(void* _arg) {
     FillingThreadArgs* const thread_args = (FillingThreadArgs*)_arg;
     while (thread_args->obj_ptr->currently_parsing_ == true || thread_args->obj_ptr->alpha_buffer_[thread_args->buffer_subscript].empty() == false) {
         if (sem_trywait(&thread_args->obj_ptr->arbitrator_sem_vec_[thread_args->buffer_subscript]) != 0) {

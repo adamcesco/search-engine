@@ -1,19 +1,20 @@
 #include <iostream>
 
-#include "KaggleFinanceParseEngine.h"
+#include "KaggleFinanceSourceEngine.h"
 #include "SearchEngine.h"
 
 int main(int argc, char** argv) {
-    search_engine::KaggleFinanceParseEngine parseEngine(4, 3);
-    parseEngine.ParseData("../full_kaggle_finance_data");
-    auto database_ptr = parseEngine.GetRunTimeDatabase();
-    if(argc < 2 || std::string(argv[1]) == "time") {
+    search_engine::KaggleFinanceEngine parseEngine(4, 3);
+    auto parse_engine_ptr = parseEngine.GetRunTimeDatabase();
+    if(argc > 2 && std::string(argv[1]) == "time") {
+        parseEngine.ParseSources(argv[2]);
         return 0;
     }
-    if (std::string(argv[1]) == "print") {
+    if (argc > 2 && std::string(argv[1]) == "print") {
         // print contents of database
+        parseEngine.ParseSources(argv[2]);
         std::cout << "value_index: " << std::endl;
-        for (auto&& map : database_ptr->value_index) {
+        for (auto&& map : parse_engine_ptr->value_index) {
             for (auto&& pair : map) {
                 std::cout << pair.first << " -> " << std::endl;
                 for (auto&& pair2 : pair.second) {
@@ -23,10 +24,14 @@ int main(int argc, char** argv) {
         }
         return 0;
     }
-    if (std::string(argv[1]) == "search") {
+    if (argc > 1 && std::string(argv[1]) == "search") {
         // search database
-        search_engine::SearchEngine<size_t, size_t, std::string> searchEngine(std::make_unique<search_engine::KaggleFinanceParseEngine>(parseEngine));
-        searchEngine.DisplayConsoleUserInterface();
+        search_engine::SearchEngine<size_t, size_t, std::string> searchEngine(std::make_unique<search_engine::KaggleFinanceEngine>(parseEngine));
+        if (argc < 3) {
+            searchEngine.DisplayConsoleUserInterface();
+        } else {
+            searchEngine.DisplayConsoleUserInterface(std::string(argv[2]));
+        }
         return 0;
     }
     return 0;

@@ -11,15 +11,15 @@ namespace search_engine {
 namespace parse_util {
 
 /*!
- * @brief A struct that contains all of the indexes that are used to store the data parsed from a file by a ParseEngine object.
+ * @brief A struct that contains all of the indexes that are used to store the data parsed from a file by a SourceEngine object.
  * @tparam T The data type you wish to use to store the ID of each source.
  * @tparam U The data type you wish to use to store the values to be indexed and the titles of the sources to be indexed.
  * @tparam V The data type you wish to use to store the meta-data of each source. This template parameter is optional, and defaults to the same type as the U template parameter.
- * @warning The use of this struct is not recommended outside of a child class of the ParseEngine class.
+ * @warning Not all of the indexes in this struct are guaranteed to be filled by a SourceEngine object. For example, a SourceEngine object that only parses files only containing test will not fill the site_index, language_index, location_index, person_index, organization_index, author_index, or country_index indexes.
  */
 template <typename T, typename U, typename V = U>
 struct RunTimeDatabase {
-    std::unordered_map<T, std::string> id_map;                                       // uuid -> file path
+    std::unordered_map<T, std::string> id_map;                                        // uuid -> file path
     std::vector<std::unordered_map<U, std::unordered_map<T, uint32_t>>> value_index;  // word -> list of {uuid -> count}
     std::unordered_map<U, std::unordered_map<T, uint32_t>> title_index;
     std::unordered_map<V, std::unordered_set<T>> site_index;
@@ -37,14 +37,21 @@ struct RunTimeDatabase {
  * @tparam V The data type you wish to use to store the meta-data of each source.
  */
 template <typename T, typename U, typename V = U>
-class ParseEngine {
+class SourceEngine {
    public:
     /*!
      * @warning The optional `stop_words_ptr` pointer parameter, if supplied to this function, must outlive this functions entire execution.
-     * @param file_path The file path of the file or folder of files you desire to parse and fill a RunTimeDatabase object with.
+     * @param path The file path of the file or folder of files you desire to parse and fill a RunTimeDatabase object with.
      * @param stop_words_ptr An optional parameter that is a constant pointer to an unordered_set of stop words.
      */
-    virtual void ParseData(std::string file_path, const std::unordered_set<U>* const stop_words_ptr = NULL) = 0;
+    virtual void ParseSources(std::string path, const std::unordered_set<U>* const stop_words_ptr = NULL) = 0;
+
+    /*!
+     * @brief Displays the source with the given file_path to the console.
+     * @param file_path The file path of the source you wish to display.
+     * @param just_header A boolean parameter that determines whether or not you wish to display just the header of the source, or the entire source.
+     */
+    virtual void DisplaySource(std::string file_path, bool just_header) = 0;
 
     /*!
      * @brief Cleans the given char* id_token and returns the cleaned id_token in the T data type. This function should be used when parsing a file to clean the id of a source, and it should be used when querying the RunTimeDatabase object.
@@ -71,12 +78,12 @@ class ParseEngine {
     virtual V CleanMetaData(const char* const metadata_token, std::optional<size_t> size = std::nullopt) = 0;
 
     /*!
-     * @brief Returns the RunTimeDatabase owned by the invoked ParseEngine object.
-     * @warning The return value should not be deleted, and the use of the return value should be restricted to the lifetime of the invoked ParseEngine object.
+     * @brief Returns the RunTimeDatabase owned by the invoked SourceEngine object.
+     * @warning The return value should not be deleted, and the use of the return value should be restricted to the lifetime of the invoked SourceEngine object.
      */
     virtual inline const RunTimeDatabase<T, U, V>* const GetRunTimeDatabase() const = 0;
 
-    virtual ~ParseEngine() = default;
+    virtual ~SourceEngine() = default;
 };
 
 }  // namespace parse_util
