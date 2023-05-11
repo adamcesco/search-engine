@@ -144,31 +144,45 @@ void search_engine::KaggleFinanceParseEngine::ParseSingleArticle(const size_t fi
 
     pthread_mutex_lock(&this->metadata_mutex_);
     this->database_.id_map[uuid] = this->files_[file_subscript].string();
-    this->database_.site_index[std::move(this->CleanMetaData(doc["thread"]["site"].GetString()))].emplace(uuid);
-    this->database_.author_index[std::move(this->CleanMetaData(doc["author"].GetString()))].emplace(uuid);
-    this->database_.country_index[std::move(this->CleanMetaData(doc["thread"]["country"].GetString()))].emplace(uuid);
-    this->database_.language_index[std::move(this->CleanMetaData(doc["language"].GetString()))].emplace(uuid);
+    this->database_.site_index[this->CleanMetaData(doc["thread"]["site"].GetString())].emplace(uuid);
+    this->database_.author_index[this->CleanMetaData(doc["author"].GetString())].emplace(uuid);
+    this->database_.country_index[this->CleanMetaData(doc["thread"]["country"].GetString())].emplace(uuid);
+    this->database_.language_index[this->CleanMetaData(doc["language"].GetString())].emplace(uuid);
 
-    const auto& people_array = doc["entities"]["persons"].GetArray();
-    for (const auto& person : people_array) {
-        this->database_.person_index[std::move(this->CleanMetaData(person["name"].GetString()))].emplace(uuid);
+    rapidjson::GenericArray<false, rapidjson::Value> people_array = std::move(doc["entities"]["persons"].GetArray());
+    for (auto&& person : people_array) {
+        this->database_.person_index[this->CleanMetaData(person["name"].GetString())].emplace(uuid);
     }
 
-    const auto& location_array = doc["entities"]["locations"].GetArray();
-    for (const auto& location : location_array) {
-        this->database_.location_index[std::move(this->CleanMetaData(location["name"].GetString()))].emplace(uuid);
+    rapidjson::GenericArray<false, rapidjson::Value> location_array = std::move(doc["entities"]["locations"].GetArray());
+    for (auto&& location : location_array) {
+        this->database_.location_index[this->CleanMetaData(location["name"].GetString())].emplace(uuid);
     }
 
-    const auto& organization_array = doc["entities"]["organizations"].GetArray();
-    for (const auto& organization : organization_array) {
-        this->database_.organization_index[std::move(this->CleanMetaData(organization["name"].GetString()))].emplace(uuid);
+    rapidjson::GenericArray<false, rapidjson::Value> organization_array = std::move(doc["entities"]["organizations"].GetArray());
+    for (auto&& organization : organization_array) {
+        this->database_.organization_index[this->CleanMetaData(organization["name"].GetString())].emplace(uuid);
+    }
+
+    char* title_token = strtok((char*)doc["thread"]["title"].GetString(), delimeters);
+    while (title_token != NULL) {
+        size_t title_token_length = strlen(title_token);
+
+        size_t cleaned_title_token = this->CleanValue(title_token, title_token_length);
+        if (cleaned_title_token == std::string::npos) {
+            title_token = strtok(NULL, delimeters);
+            continue;
+        }
+        auto iter = this->database_.title_index[cleaned_title_token].emplace(uuid, 0);
+        iter.first->second++;
+
+        title_token = strtok(NULL, delimeters);
     }
     pthread_mutex_unlock(&this->metadata_mutex_);
 
     std::unordered_map<size_t, uint32_t>& word_map = this->unformatted_database_[file_subscript].second;
-    std::string text(std::move(doc["text"].GetString()));
     char* save_ptr;
-    char* token = strtok_r(text.data(), delimeters, &save_ptr);
+    char* token = strtok_r((char*)doc["text"].GetString(), delimeters, &save_ptr);
     while (token != NULL) {
         size_t token_length = strlen(token);
 
@@ -177,7 +191,7 @@ void search_engine::KaggleFinanceParseEngine::ParseSingleArticle(const size_t fi
             token = strtok_r(NULL, delimeters, &save_ptr);
             continue;
         }
-        auto iter = word_map.emplace(std::move(cleaned_token), 0);
+        auto iter = word_map.emplace(cleaned_token, 0);
         iter.first->second++;
 
         token = strtok_r(NULL, delimeters, &save_ptr);

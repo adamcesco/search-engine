@@ -47,7 +47,7 @@ class KaggleFinanceParseEngine : public parse_util::ParseEngine<size_t, size_t, 
     static void* ArbitratorThreadFunc(void* _arg);
     static void* FillingThreadFunc(void* _arg);
 
-    parse_util::RunTimeDatabase<size_t, size_t, std::string> database_;  // todo: change database_ to be a map of size_t (hashed words) to size_t (hashed uuids)
+    parse_util::RunTimeDatabase<size_t, size_t, std::string> database_;
     std::vector<std::pair<size_t, std::unordered_map<size_t, uint32_t>>> unformatted_database_;
     std::vector<std::filesystem::__cxx11::path> files_;
     size_t parsing_thread_count_;

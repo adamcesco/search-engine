@@ -13,7 +13,7 @@ namespace parse_util {
 /*!
  * @brief A struct that contains all of the indexes that are used to store the data parsed from a file by a ParseEngine object.
  * @tparam T The data type you wish to use to store the ID of each source.
- * @tparam U The data type you wish to use to store the values to be indexed.
+ * @tparam U The data type you wish to use to store the values to be indexed and the titles of the sources to be indexed.
  * @tparam V The data type you wish to use to store the meta-data of each source. This template parameter is optional, and defaults to the same type as the U template parameter.
  * @warning The use of this struct is not recommended outside of a child class of the ParseEngine class.
  */
