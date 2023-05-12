@@ -46,6 +46,9 @@ void SearchEngine<T, U, V>::DisplayConsoleUserInterface(std::optional<std::strin
                 size_t result_index = 0;
                 std::cout << "Results: " << std::endl;
                 for (auto&& result : results) {
+                    if(result_index == 10) {
+                        break;
+                    }
                     std::cout << result_index++ << "\t";
                     this->source_engine_ptr_->DisplaySource(result, true);
                 }

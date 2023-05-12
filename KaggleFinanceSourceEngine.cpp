@@ -75,11 +75,18 @@ void search_engine::KaggleFinanceEngine::ParseSources(std::string file_path, con
     for (size_t i = 0; i < this->parsing_thread_count_; i++) {
         pthread_join(parsing_thread_array[i], NULL);
     }
+
     this->currently_parsing_ = false;
-    for (size_t i = 0; i < this->filling_thread_count_; i++) {
-        pthread_join(filling_thread_array[i], NULL);
+
+    while (pthread_tryjoin_np(filling_arbitrator_thread, NULL) != 0) {
+        sem_post(&this->production_state_sem_);
     }
-    pthread_join(filling_arbitrator_thread, NULL);
+
+    for (size_t i = 0; i < this->filling_thread_count_; i++) {
+        while ( pthread_tryjoin_np(filling_thread_array[i], NULL) != 0) {
+            sem_post(this->arbitrator_sem_vec_.data() + i);
+        }
+    }
 }
 
 void search_engine::KaggleFinanceEngine::DisplaySource(std::string file_path, bool just_header) {
@@ -234,10 +241,8 @@ void* search_engine::KaggleFinanceEngine::ParsingThreadFunc(void* _arg) {
 
 void* search_engine::KaggleFinanceEngine::ArbitratorThreadFunc(void* _arg) {
     search_engine::KaggleFinanceEngine* const parse_engine = (search_engine::KaggleFinanceEngine*)_arg;
+    sem_wait(&parse_engine->production_state_sem_);
     while (parse_engine->currently_parsing_ == true || parse_engine->arbitrator_buffer_.empty() == false) {
-        if (sem_trywait(&parse_engine->production_state_sem_) != 0) {
-            continue;
-        }
         pthread_mutex_lock(&parse_engine->arbitrator_buffer_mutex_);
         const size_t i = parse_engine->arbitrator_buffer_.front();
         parse_engine->arbitrator_buffer_.pop();
@@ -255,22 +260,22 @@ void* search_engine::KaggleFinanceEngine::ArbitratorThreadFunc(void* _arg) {
             pthread_mutex_unlock(&parse_engine->alpha_buffer_mutex_[word_buffer_index]);
             sem_post(&parse_engine->arbitrator_sem_vec_[word_buffer_index]);
         }
+        sem_wait(&parse_engine->production_state_sem_);
     }
     return NULL;
 }
 
 void* search_engine::KaggleFinanceEngine::FillingThreadFunc(void* _arg) {
     FillingThreadArgs* const thread_args = (FillingThreadArgs*)_arg;
+    sem_wait(&thread_args->obj_ptr->arbitrator_sem_vec_[thread_args->buffer_subscript]);
     while (thread_args->obj_ptr->currently_parsing_ == true || thread_args->obj_ptr->alpha_buffer_[thread_args->buffer_subscript].empty() == false) {
-        if (sem_trywait(&thread_args->obj_ptr->arbitrator_sem_vec_[thread_args->buffer_subscript]) != 0) {
-            continue;
-        }
         pthread_mutex_lock(&thread_args->obj_ptr->alpha_buffer_mutex_[thread_args->buffer_subscript]);
         const AlphaBufferArgs word_args = std::move(thread_args->obj_ptr->alpha_buffer_[thread_args->buffer_subscript].front());
         thread_args->obj_ptr->alpha_buffer_[thread_args->buffer_subscript].pop();
         pthread_mutex_unlock(&thread_args->obj_ptr->alpha_buffer_mutex_[thread_args->buffer_subscript]);
 
         thread_args->obj_ptr->database_.value_index[thread_args->buffer_subscript][word_args.word].emplace(thread_args->obj_ptr->unformatted_database_[word_args.file_subscript].first, word_args.count);
+        sem_wait(&thread_args->obj_ptr->arbitrator_sem_vec_[thread_args->buffer_subscript]);
     }
     return NULL;
 }

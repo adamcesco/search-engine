@@ -4,7 +4,7 @@
 #include "SearchEngine.h"
 
 int main(int argc, char** argv) {
-    search_engine::KaggleFinanceEngine parseEngine(4, 3);
+    search_engine::KaggleFinanceEngine parseEngine(6, 4);
     auto parse_engine_ptr = parseEngine.GetRunTimeDatabase();
     if(argc > 2 && std::string(argv[1]) == "time") {
         parseEngine.ParseSources(argv[2]);
