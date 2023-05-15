@@ -12,9 +12,9 @@ template <typename T, typename U, typename V = U>
 class SearchEngine {
    public:
     SearchEngine(std::unique_ptr<parse_util::SourceEngine<T, U, V>>&& dep_inj_ptr) : source_engine_ptr_{std::forward<std::unique_ptr<parse_util::SourceEngine<T, U, V>>>(dep_inj_ptr)} {}
-    void DisplayConsoleUserInterface(std::optional<std::string> shortcut = std::nullopt);
 
-   private:
+    void InitCommandLineInterface(std::optional<std::string> shortcut = std::nullopt);
+
     /*!
      * @brief Handles a query and returns a vector containing a set of the filepaths of the sources that match the query.
      * @param query The query to be handled.
@@ -22,11 +22,12 @@ class SearchEngine {
      */
     std::vector<std::string> HandleQuery(std::string query);
 
+   private:
     std::unique_ptr<parse_util::SourceEngine<T, U, V>> source_engine_ptr_;
 };
 
 template <typename T, typename U, typename V>
-void SearchEngine<T, U, V>::DisplayConsoleUserInterface(std::optional<std::string> shortcut) {
+void SearchEngine<T, U, V>::InitCommandLineInterface(std::optional<std::string> shortcut) {
     std::string input;
     if (shortcut.has_value()) {
         input = shortcut.value();
@@ -46,7 +47,7 @@ void SearchEngine<T, U, V>::DisplayConsoleUserInterface(std::optional<std::strin
                 size_t result_index = 0;
                 std::cout << "Results: " << std::endl;
                 for (auto&& result : results) {
-                    if(result_index == 10) {
+                    if (result_index == 10) {
                         break;
                     }
                     std::cout << result_index++ << "\t";
@@ -70,6 +71,7 @@ void SearchEngine<T, U, V>::DisplayConsoleUserInterface(std::optional<std::strin
             }
         }
         if (input == "parse") {
+            this->source_engine_ptr_->ClearRunTimeDatabase();
             std::cout << "Please enter the path to the data you would like to parse: ";
             std::getline(std::cin, input);
             this->source_engine_ptr_->ParseSources(input);

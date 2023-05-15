@@ -1,5 +1,5 @@
-#ifndef SEARCH_ENGINE_PROJECT_INDEXENGINE_H_
-#define SEARCH_ENGINE_PROJECT_INDEXENGINE_H_
+#ifndef SEARCH_ENGINE_PROJECT_SOURCEENGINE_H_
+#define SEARCH_ENGINE_PROJECT_SOURCEENGINE_H_
 
 #include <string>
 #include <unordered_map>
@@ -53,6 +53,8 @@ class SourceEngine {
      */
     virtual void DisplaySource(std::string file_path, bool just_header) = 0;
 
+    virtual inline void ClearRunTimeDatabase() = 0;
+    
     /*!
      * @brief Cleans the given char* id_token and returns the cleaned id_token in the T data type. This function should be used when parsing a file to clean the id of a source, and it should be used when querying the RunTimeDatabase object.
      * @param id_token The char* id_token to be cleaned.
@@ -83,10 +85,11 @@ class SourceEngine {
      */
     virtual inline const RunTimeDatabase<T, U, V>* const GetRunTimeDatabase() const = 0;
 
+
     virtual ~SourceEngine() = default;
 };
 
 }  // namespace parse_util
 }  // namespace search_engine
 
-#endif  // SEARCH_ENGINE_PROJECT_INDEXENGINE_H_
+#endif  // SEARCH_ENGINE_PROJECT_SOURCEENGINE_H_
