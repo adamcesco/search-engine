@@ -8,7 +8,7 @@
 
 namespace search_engine {
 
-namespace parse_util {
+namespace source_util {
 
 /*!
  * @brief A struct that contains all of the indexes that are used to store the data parsed from a file by a SourceEngine object.
@@ -89,7 +89,7 @@ class SourceEngine {
     virtual ~SourceEngine() = default;
 };
 
-}  // namespace parse_util
+}  // namespace source_util
 }  // namespace search_engine
 
 #endif  // SEARCH_ENGINE_PROJECT_SOURCEENGINE_H_

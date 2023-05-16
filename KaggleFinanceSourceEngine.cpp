@@ -253,27 +253,27 @@ void* search_engine::KaggleFinanceEngine::ParsingThreadFunc(void* _arg) {
 }
 
 void* search_engine::KaggleFinanceEngine::ArbitratorThreadFunc(void* _arg) {
-    search_engine::KaggleFinanceEngine* const parse_engine = (search_engine::KaggleFinanceEngine*)_arg;
-    sem_wait(&parse_engine->production_state_sem_);
-    while (parse_engine->currently_parsing_ == true || parse_engine->arbitrator_buffer_.empty() == false) {
-        pthread_mutex_lock(&parse_engine->arbitrator_buffer_mutex_);
-        const size_t i = parse_engine->arbitrator_buffer_.front();
-        parse_engine->arbitrator_buffer_.pop();
-        pthread_mutex_unlock(&parse_engine->arbitrator_buffer_mutex_);
+    search_engine::KaggleFinanceEngine* const source_engine = (search_engine::KaggleFinanceEngine*)_arg;
+    sem_wait(&source_engine->production_state_sem_);
+    while (source_engine->currently_parsing_ == true || source_engine->arbitrator_buffer_.empty() == false) {
+        pthread_mutex_lock(&source_engine->arbitrator_buffer_mutex_);
+        const size_t i = source_engine->arbitrator_buffer_.front();
+        source_engine->arbitrator_buffer_.pop();
+        pthread_mutex_unlock(&source_engine->arbitrator_buffer_mutex_);
 
-        for (auto&& inner_element : parse_engine->unformatted_database_[i].second) {
-            size_t word_buffer_subscript = inner_element.first % parse_engine->filling_thread_count_;
+        for (auto&& inner_element : source_engine->unformatted_database_[i].second) {
+            size_t word_buffer_subscript = inner_element.first % source_engine->filling_thread_count_;
 
-            pthread_mutex_lock(&parse_engine->alpha_buffer_mutex_[word_buffer_subscript]);
-            parse_engine->alpha_buffer_[word_buffer_subscript].push(std::move(AlphaBufferArgs{
+            pthread_mutex_lock(&source_engine->alpha_buffer_mutex_[word_buffer_subscript]);
+            source_engine->alpha_buffer_[word_buffer_subscript].push(std::move(AlphaBufferArgs{
                 .file_subscript = i,
                 .word = std::move(inner_element.first),
                 .count = inner_element.second,
             }));
-            pthread_mutex_unlock(&parse_engine->alpha_buffer_mutex_[word_buffer_subscript]);
-            sem_post(&parse_engine->arbitrator_sem_vec_[word_buffer_subscript]);
+            pthread_mutex_unlock(&source_engine->alpha_buffer_mutex_[word_buffer_subscript]);
+            sem_post(&source_engine->arbitrator_sem_vec_[word_buffer_subscript]);
         }
-        sem_wait(&parse_engine->production_state_sem_);
+        sem_wait(&source_engine->production_state_sem_);
     }
     return NULL;
 }

@@ -10,7 +10,8 @@ int main(int argc, char** argv) {
     int64_t filler_thread_count;
     try {
         boost::program_options::options_description desc("Options");
-        desc.add_options()("help", "Help screen")
+        desc.add_options()
+            /*help flag   */ ("help", "Help screen")
             /*path flag   */ ("path", boost::program_options::value<std::string>(&path)->default_value("../sample_kaggle_finance_data"), "Sets the path to the file or folder of files you wish to parse.")
             /*thread flag */ ("parser-threads,pt", boost::program_options::value<int64_t>(&parser_thread_count)->default_value(1), "Sets the number of threads to be used to parse the given file or folder of files.")
             /*thread flag */ ("filler-threads,ft", boost::program_options::value<int64_t>(&filler_thread_count)->default_value(1), "Sets the number of threads to be used to fill the database while parsing the given file or folder of files.")
@@ -26,13 +27,13 @@ int main(int argc, char** argv) {
             return 1;
         }
 
-        search_engine::KaggleFinanceEngine parse_engine(parser_thread_count, filler_thread_count);
-        search_engine::SearchEngine<size_t, size_t, std::string> search_engine(std::make_unique<search_engine::KaggleFinanceEngine>(parse_engine));
-        parse_engine.ParseSources(path);
-        auto parse_engine_ptr = parse_engine.GetRunTimeDatabase();
+        search_engine::KaggleFinanceEngine source_engine(parser_thread_count, filler_thread_count);
+        source_engine.ParseSources(path);
+        auto database_ptr = source_engine.GetRunTimeDatabase();
+        search_engine::SearchEngine<size_t, size_t, std::string> search_engine(std::make_unique<search_engine::KaggleFinanceEngine>(source_engine));
         if (vm.count("print-database")) {
             std::cout << "value_index: " << std::endl;
-            for (auto&& map : parse_engine_ptr->value_index) {
+            for (auto&& map : database_ptr->value_index) {
                 for (auto&& pair : map) {
                     std::cout << pair.first << " -> " << std::endl;
                     for (auto&& pair2 : pair.second) {
@@ -46,7 +47,8 @@ int main(int argc, char** argv) {
             std::cout << "Enter a query: ";
             std::getline(std::cin, query);
             std::cout << "Results for query: " << query << std::endl;
-            for (auto&& result : search_engine.HandleQuery(query)) {
+            auto results = search_engine.HandleQuery(query);
+            for (auto&& result : results) {
                 std::cout << "\t" << result << std::endl;
             }
         }

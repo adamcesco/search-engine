@@ -1,5 +1,5 @@
-#ifndef SEARCH_ENGINE_PROJECT_KAGGLEFINANCEPARSEENGINE_H_
-#define SEARCH_ENGINE_PROJECT_KAGGLEFINANCEPARSEENGINE_H_
+#ifndef SEARCH_ENGINE_PROJECT_KAGGLEFINANCESOURCEENGINE_H_
+#define SEARCH_ENGINE_PROJECT_KAGGLEFINANCESOURCEENGINE_H_
 
 #include <semaphore.h>
 
@@ -13,10 +13,10 @@
 namespace search_engine {
 
 /*! 
-* @brief The KaggleFinanceEngine class should be used to parse the data found at https://www.kaggle.com/datasets/jeet2016/us-financial-news-articles
-* @attention The KaggleFinanceEngine is a child of the search_engine::parse_util::SourceEngine<size_t, size_t, std::string> classs.
+* @brief The KaggleFinanceEngine class should be used to manage and parse the data found at https://www.kaggle.com/datasets/jeet2016/us-financial-news-articles
+* @attention The KaggleFinanceEngine is a child of the search_engine::source_util::SourceEngine<size_t, size_t, std::string> classs.
 */
-class KaggleFinanceEngine : public parse_util::SourceEngine<size_t, size_t, std::string> {
+class KaggleFinanceEngine : public source_util::SourceEngine<size_t, size_t, std::string> {
    public:
     explicit KaggleFinanceEngine(size_t parse_amount, size_t fill_amount);
     void ParseSources(std::string file_path, const std::unordered_set<size_t>* const stop_words = NULL) override;
@@ -25,7 +25,7 @@ class KaggleFinanceEngine : public parse_util::SourceEngine<size_t, size_t, std:
     size_t CleanID(const char* const id_token, std::optional<size_t> size = std::nullopt) override;
     size_t CleanValue(const char* const value_token, std::optional<size_t> size = std::nullopt) override;
     std::string CleanMetaData(const char* const metadata_token, std::optional<size_t> size = std::nullopt) override;
-    inline const parse_util::RunTimeDatabase<size_t, size_t, std::string>* const GetRunTimeDatabase() const override { return &database_; };
+    inline const source_util::RunTimeDatabase<size_t, size_t, std::string>* const GetRunTimeDatabase() const override { return &database_; };
 
    private:
     struct ParsingThreadArgs {
@@ -49,7 +49,7 @@ class KaggleFinanceEngine : public parse_util::SourceEngine<size_t, size_t, std:
     static void* ArbitratorThreadFunc(void* _arg);
     static void* FillingThreadFunc(void* _arg);
 
-    parse_util::RunTimeDatabase<size_t, size_t, std::string> database_;
+    source_util::RunTimeDatabase<size_t, size_t, std::string> database_;
     std::vector<std::pair<size_t, std::unordered_map<size_t, uint32_t>>> unformatted_database_;
     std::vector<std::filesystem::__cxx11::path> files_;
     size_t parsing_thread_count_;
@@ -66,4 +66,4 @@ class KaggleFinanceEngine : public parse_util::SourceEngine<size_t, size_t, std:
 
 }  // namespace search_engine
 
-#endif  // SEARCH_ENGINE_PROJECT_KAGGLEFINANCEPARSEENGINE_H_
+#endif  // SEARCH_ENGINE_PROJECT_KAGGLEFINANCESOURCEENGINE_H_
