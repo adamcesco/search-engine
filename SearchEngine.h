@@ -89,21 +89,21 @@ void SearchEngine<T, U, V>::InitCommandLineInterface(std::optional<std::string> 
 template <typename T, typename U, typename V>
 std::vector<std::string> SearchEngine<T, U, V>::HandleQuery(std::string query) {
     std::vector<std::string> results;
-    std::regex category_pattern(R"(((?:(?:values)|(?:titles)|(?:sites)|(?:langs)|(?:locations)|(?:people)|(?:orgs)|(?:authors)|(?:countries))[\s]{0,1}:[\s]{0,1}\{[^\{\}]+\}))");
+    std::regex category_pattern(R"(((?:(?:values)|(?:titles)|(?:sites)|(?:langs)|(?:locations)|(?:people)|(?:orgs)|(?:authors)|(?:countries))[^|]*))");
     for (std::regex_iterator<std::string::iterator> it(query.begin(), query.end(), category_pattern); it != std::regex_iterator<std::string::iterator>(); ++it) {
         std::string category_match = std::move(it->str());
         int64_t category_hash = category_match[0] + (category_match[1] * 2);
-        std::regex arg_pattern("\"((?:\\\\\"|[^\"])+)\"|([^, \\{\\}]+)");  // states that the user must seperate the arguments with a comma and/or a space, and that the arguments can't contain a comma, space, or curly brace.
-                                                                           // stats that the user can enter in a string with commas and/or spaces in it by surrounding the string with double quotes.
+        std::regex arg_pattern("\"((?:\\\\\"|[^\"])+)\"|([^, ]+)");  // states that the user must seperate the arguments with a comma and/or a space, and that the arguments can't contain a comma, space, or curly brace.
+                                                                     // stats that the user can enter in a string with commas and/or spaces in it by surrounding the string with double quotes.
 
         for (std::regex_iterator<std::string::iterator> it2(category_match.begin(), category_match.end(), arg_pattern); it2 != std::regex_iterator<std::string::iterator>(); ++it2) {
             std::string arg_match = std::move(it2->str());
-            
-            if(arg_match.size() <= 2) {
+
+            if (arg_match.size() <= 2) {
                 std::cout << "Invalid term size. The following term was skipped: " << arg_match << std::endl;
                 continue;
             }
-            
+
             bool has_front_quote = arg_match.front() == '\"';
             bool has_back_quote = arg_match.back() == '\"';
             bool back_quote_esc = has_back_quote == true && arg_match[arg_match.size() - 2] == '\\';

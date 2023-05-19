@@ -15,6 +15,7 @@ namespace search_engine {
 /*! 
 * @brief The KaggleFinanceEngine class should be used to manage and parse the data found at https://www.kaggle.com/datasets/jeet2016/us-financial-news-articles
 * @attention The KaggleFinanceEngine is a child of the search_engine::source_util::SourceEngine<size_t, size_t, std::string> classs.
+* @warning The KaggleFinanceEngine class utilizes POSIX threads and the mmap structure, and therefore is only compatible with Linux systems.
 */
 class KaggleFinanceEngine : public source_util::SourceEngine<size_t, size_t, std::string> {
    public:

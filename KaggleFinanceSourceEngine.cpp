@@ -1,6 +1,10 @@
 #include "KaggleFinanceSourceEngine.h"
 
+#include <fcntl.h>
 #include <pthread.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include <cstring>
 #include <fstream>
@@ -28,7 +32,7 @@ search_engine::KaggleFinanceEngine::KaggleFinanceEngine(size_t parse_amount, siz
 void search_engine::KaggleFinanceEngine::ParseSources(std::string file_path, const std::unordered_set<size_t>* const stop_words_ptr) {
     auto it = std::filesystem::recursive_directory_iterator(file_path);
     for (auto&& entry : it) {
-        if (entry.is_regular_file() && entry.path().extension().string() == ".json") {
+        if (entry.is_regular_file() == true && entry.path().extension().string() == ".json") {
             this->files_.push_back(std::move(entry.path()));
         }
     }
@@ -98,7 +102,6 @@ void search_engine::KaggleFinanceEngine::DisplaySource(std::string file_path, bo
     if (just_header == false) {
         std::cout << "Header: " << std::endl;
     }
-
     std::cout << doc["thread"]["title"].GetString() << " || " << doc["thread"]["country"].GetString() << " || " << doc["thread"]["site"].GetString() << std::endl
               << std::endl;
 
@@ -126,12 +129,12 @@ size_t search_engine::KaggleFinanceEngine::CleanID(const char* const id_token, s
 }
 
 size_t search_engine::KaggleFinanceEngine::CleanValue(const char* const value_token, std::optional<size_t> size) {
+    //todo: optimize this function
     std::string cleaned_token;
     if (size.has_value() == false) {
         size = strlen(value_token);
     }
     cleaned_token.resize(size.value());
-    // check for unicode characters and lowercase token
     for (size_t i = 0, j = 0; i < size; i++, j++) {
         if (value_token[i] < 0 || value_token[i] > 127) {
             return std::string::npos;
@@ -147,6 +150,7 @@ size_t search_engine::KaggleFinanceEngine::CleanValue(const char* const value_to
 }
 
 std::string search_engine::KaggleFinanceEngine::CleanMetaData(const char* const metadata_token, std::optional<size_t> size) {
+    //todo: optimize this function
     std::string cleaned_token;
     if (size.has_value() == false) {
         size = strlen(metadata_token);
@@ -168,15 +172,34 @@ std::string search_engine::KaggleFinanceEngine::CleanMetaData(const char* const 
 }
 
 void search_engine::KaggleFinanceEngine::ParseSingleArticle(const size_t file_subscript, const std::unordered_set<size_t>* stop_words_ptr) {
-    std::ifstream input(this->files_[file_subscript]);
-    if (input.is_open() == false) {
-        std::cerr << "cannot open file: " << this->files_[file_subscript].string() << std::endl;
+    int fd = open(this->files_[file_subscript].c_str(), O_RDONLY);
+    if (fd == -1) {
+        std::cerr << "Error opening file at " << this->files_[file_subscript].c_str() << std::endl;
+        return;
+    }
+
+    struct stat st;
+    if (fstat(fd, &st) == -1) {
+        std::cerr << "Error getting file size at " << this->files_[file_subscript].c_str() << std::endl;
+        close(fd);
+        return;
+    }
+
+    void* addr = mmap(0, st.st_size, PROT_READ, MAP_SHARED, fd, 0);
+    if (addr == MAP_FAILED) {
+        std::cerr << "Error mapping file at " << this->files_[file_subscript].c_str() << std::endl;
+        close(fd);
         return;
     }
 
     rapidjson::Document doc;
-    rapidjson::IStreamWrapper isw(input);
-    doc.ParseStream(isw);
+    doc.Parse(static_cast<char*>(addr));
+    if (munmap(addr, st.st_size) == -1) {
+        std::cerr << "Error unmapping file at " << this->files_[file_subscript].c_str() << std::endl;
+        close(fd);
+        return;
+    }
+    close(fd);
 
     const char* const delimeters = " \t\v\n\r,.?!;:\"/()";
     size_t uuid = this->unformatted_database_[file_subscript].first = std::move(this->CleanID(doc["uuid"].GetString()));
@@ -235,7 +258,6 @@ void search_engine::KaggleFinanceEngine::ParseSingleArticle(const size_t file_su
 
         token = strtok_r(NULL, delimeters, &save_ptr);
     }
-    input.close();
 
     pthread_mutex_lock(&this->arbitrator_buffer_mutex_);
     this->arbitrator_buffer_.push(file_subscript);
