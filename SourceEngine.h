@@ -53,8 +53,8 @@ class SourceEngine {
      */
     virtual void DisplaySource(std::string file_path, bool just_header) = 0;
 
-    virtual inline void ClearRunTimeDatabase() = 0;
-    
+    virtual inline void ClearRuntimeDatabase() = 0;
+
     /*!
      * @brief Cleans the given char* id_token and returns the cleaned id_token in the T data type. This function should be used when parsing a file to clean the id of a source, and it should be used when querying the RunTimeDatabase object.
      * @param id_token The char* id_token to be cleaned.
@@ -83,8 +83,7 @@ class SourceEngine {
      * @brief Returns the RunTimeDatabase owned by the invoked SourceEngine object.
      * @warning The return value should not be deleted, and the use of the return value should be restricted to the lifetime of the invoked SourceEngine object.
      */
-    virtual inline const RunTimeDatabase<T, U, V>* const GetRunTimeDatabase() const = 0;
-
+    virtual inline const RunTimeDatabase<T, U, V>* const GetRuntimeDatabase() const = 0;
 
     virtual ~SourceEngine() = default;
 };

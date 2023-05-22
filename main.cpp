@@ -29,7 +29,7 @@ int main(int argc, char** argv) {
 
         search_engine::KaggleFinanceEngine source_engine(parser_thread_count, filler_thread_count);
         source_engine.ParseSources(path);
-        auto database_ptr = source_engine.GetRunTimeDatabase();
+        auto database_ptr = source_engine.GetRuntimeDatabase();
         search_engine::SearchEngine<size_t, size_t, std::string> search_engine(std::make_unique<search_engine::KaggleFinanceEngine>(source_engine));
         if (vm.count("print-database")) {
             std::cout << "value_index: " << std::endl;

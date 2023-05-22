@@ -1,6 +1,7 @@
 #ifndef SEARCH_ENGINE_PROJECT_SEARCHENGINE_H_
 #define SEARCH_ENGINE_PROJECT_SEARCHENGINE_H_
 
+#include <algorithm>
 #include <memory>
 #include <optional>
 #include <regex>
@@ -72,7 +73,7 @@ void SearchEngine<T, U, V>::InitCommandLineInterface(std::optional<std::string> 
             }
         }
         if (input == "parse") {
-            this->source_engine_ptr_->ClearRunTimeDatabase();
+            this->source_engine_ptr_->ClearRuntimeDatabase();
             std::cout << "Please enter the path to the data you would like to parse: ";
             std::getline(std::cin, input);
             this->source_engine_ptr_->ParseSources(input);
@@ -88,8 +89,8 @@ void SearchEngine<T, U, V>::InitCommandLineInterface(std::optional<std::string> 
 
 template <typename T, typename U, typename V>
 std::vector<std::string> SearchEngine<T, U, V>::HandleQuery(std::string query) {
-    std::vector<std::string> results;
-    std::regex category_pattern(R"(((?:(?:values)|(?:titles)|(?:sites)|(?:langs)|(?:locations)|(?:people)|(?:orgs)|(?:authors)|(?:countries))[^|]*))");
+    std::unordered_map<std::string, int32_t> results;
+    std::regex category_pattern(R"(((?:(?:values)|(?:titles)|(?:sites)|(?:langs)|(?:locations)|(?:people)|(?:orgs)|(?:authors)|(?:countries)):[^|]*))");
     for (std::regex_iterator<std::string::iterator> it(query.begin(), query.end(), category_pattern); it != std::regex_iterator<std::string::iterator>(); ++it) {
         std::string category_match = std::move(it->str());
         int64_t category_hash = category_match[0] + (category_match[1] * 2);
@@ -116,10 +117,126 @@ std::vector<std::string> SearchEngine<T, U, V>::HandleQuery(std::string query) {
                 arg_match = std::move(arg_match.substr(1, arg_match.size() - 2));
             }
 
-            std::cout << arg_match << std::endl;
+            const auto* const runtime_database = this->source_engine_ptr_->GetRuntimeDatabase();
+            switch (category_hash) {
+                case 312: {  // values case
+                    size_t cleaned_metadata = std::move(this->source_engine_ptr_->CleanValue(arg_match.c_str(), arg_match.size()));
+                    const auto& value_index_vec = runtime_database->value_index;
+                    for (const auto& value_map : value_index_vec) {
+                        auto uuid_count_map_iter = value_map.find(cleaned_metadata);
+                        if (uuid_count_map_iter == value_map.end()) {
+                            break;
+                        }
+                        for (const auto& uuid_count_pair : uuid_count_map_iter->second) {
+                            auto iter = results.emplace(runtime_database->id_map.at(uuid_count_pair.first), 0);
+                            iter.first->second += uuid_count_pair.second;
+                        }
+                    }
+                    break;
+                }
+                case 326: {  // titles case
+
+                    break;
+                }
+                case 325: {  // sites case
+                    std::string cleaned_metadata = std::move(this->source_engine_ptr_->CleanMetaData(arg_match.c_str(), arg_match.size()));
+                    auto uuid_set_iter = runtime_database->site_index.find(cleaned_metadata);
+                    if (uuid_set_iter == runtime_database->site_index.end()) {
+                        break;
+                    }
+                    for (const auto& uuid : uuid_set_iter->second) {
+                        auto iter = results.emplace(runtime_database->id_map.at(uuid), 0);
+                        iter.first->second++;
+                    }
+                    break;
+                }
+                case 302: {  // langs case
+                    std::string cleaned_metadata = std::move(this->source_engine_ptr_->CleanMetaData(arg_match.c_str(), arg_match.size()));
+                    auto uuid_set_iter = runtime_database->language_index.find(cleaned_metadata);
+                    if (uuid_set_iter == runtime_database->language_index.end()) {
+                        break;
+                    }
+                    for (const auto& uuid : uuid_set_iter->second) {
+                        auto iter = results.emplace(runtime_database->id_map.at(uuid), 0);
+                        iter.first->second++;
+                    }
+                    break;
+                }
+                case 330: {  // locations case
+                    std::string cleaned_metadata = std::move(this->source_engine_ptr_->CleanMetaData(arg_match.c_str(), arg_match.size()));
+                    auto uuid_set_iter = runtime_database->location_index.find(cleaned_metadata);
+                    if (uuid_set_iter == runtime_database->location_index.end()) {
+                        break;
+                    }
+                    for (const auto& uuid : uuid_set_iter->second) {
+                        auto iter = results.emplace(runtime_database->id_map.at(uuid), 0);
+                        iter.first->second++;
+                    }
+                    break;
+                }
+                case 314: {  // people case
+                    std::string cleaned_metadata = std::move(this->source_engine_ptr_->CleanMetaData(arg_match.c_str(), arg_match.size()));
+                    auto uuid_set_iter = runtime_database->person_index.find(cleaned_metadata);
+                    if (uuid_set_iter == runtime_database->person_index.end()) {
+                        break;
+                    }
+                    for (const auto& uuid : uuid_set_iter->second) {
+                        auto iter = results.emplace(runtime_database->id_map.at(uuid), 0);
+                        iter.first->second++;
+                    }
+                    break;
+                }
+                case 339: {  // orgs case
+                    std::string cleaned_metadata = std::move(this->source_engine_ptr_->CleanMetaData(arg_match.c_str(), arg_match.size()));
+                    auto uuid_set_iter = runtime_database->organization_index.find(cleaned_metadata);
+                    if (uuid_set_iter == runtime_database->organization_index.end()) {
+                        break;
+                    }
+                    for (const auto& uuid : uuid_set_iter->second) {
+                        auto iter = results.emplace(runtime_database->id_map.at(uuid), 0);
+                        iter.first->second++;
+                    }
+                    break;
+                }
+                case 331: {  // authors case
+                    std::string cleaned_metadata = std::move(this->source_engine_ptr_->CleanMetaData(arg_match.c_str(), arg_match.size()));
+                    auto uuid_set_iter = runtime_database->author_index.find(cleaned_metadata);
+                    if (uuid_set_iter == runtime_database->author_index.end()) {
+                        break;
+                    }
+                    for (const auto& uuid : uuid_set_iter->second) {
+                        auto iter = results.emplace(runtime_database->id_map.at(uuid), 0);
+                        iter.first->second++;
+                    }
+                    break;
+                }
+                case 321: {  // countries case
+                    std::string cleaned_metadata = std::move(this->source_engine_ptr_->CleanMetaData(arg_match.c_str(), arg_match.size()));
+                    auto uuid_set_iter = runtime_database->country_index.find(cleaned_metadata);
+                    if (uuid_set_iter == runtime_database->country_index.end()) {
+                        break;
+                    }
+                    for (const auto& uuid : uuid_set_iter->second) {
+                        auto iter = results.emplace(runtime_database->id_map.at(uuid), 0);
+                        iter.first->second++;
+                    }
+                    break;
+                }
+                default:
+                    break;
+            }
         }
     }
-    return {};
+
+    std::vector<std::string> results_vec;
+    for (auto&& result : results) {
+        results_vec.push_back(result.first);
+    }
+    // sort contents of results_vec by the int value of the pair in results
+    std::sort(results_vec.begin(), results_vec.end(), [&results](const std::string& a, const std::string& b) {
+        return results.at(a) > results.at(b);
+    });
+    return results_vec;
 }
 
 }  // namespace search_engine

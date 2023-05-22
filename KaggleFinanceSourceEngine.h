@@ -22,11 +22,11 @@ class KaggleFinanceEngine : public source_util::SourceEngine<size_t, size_t, std
     explicit KaggleFinanceEngine(size_t parse_amount, size_t fill_amount);
     void ParseSources(std::string file_path, const std::unordered_set<size_t>* const stop_words = NULL) override;
     void DisplaySource(std::string file_path, bool just_header) override;
-    inline void ClearRunTimeDatabase() override;
+    inline void ClearRuntimeDatabase() override;
     size_t CleanID(const char* const id_token, std::optional<size_t> size = std::nullopt) override;
     size_t CleanValue(const char* const value_token, std::optional<size_t> size = std::nullopt) override;
     std::string CleanMetaData(const char* const metadata_token, std::optional<size_t> size = std::nullopt) override;
-    inline const source_util::RunTimeDatabase<size_t, size_t, std::string>* const GetRunTimeDatabase() const override { return &database_; };
+    inline const source_util::RunTimeDatabase<size_t, size_t, std::string>* const GetRuntimeDatabase() const override { return &database_; };
 
    private:
     struct ParsingThreadArgs {

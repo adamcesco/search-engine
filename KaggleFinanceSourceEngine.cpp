@@ -111,7 +111,7 @@ void search_engine::KaggleFinanceEngine::DisplaySource(std::string file_path, bo
     }
 }
 
-void search_engine::KaggleFinanceEngine::ClearRunTimeDatabase() {
+void search_engine::KaggleFinanceEngine::ClearRuntimeDatabase() {
     this->database_.id_map.clear();
     this->database_.value_index.clear();
     this->database_.title_index.clear();
@@ -279,6 +279,10 @@ void* search_engine::KaggleFinanceEngine::ArbitratorThreadFunc(void* _arg) {
     sem_wait(&source_engine->production_state_sem_);
     while (source_engine->currently_parsing_ == true || source_engine->arbitrator_buffer_.empty() == false) {
         pthread_mutex_lock(&source_engine->arbitrator_buffer_mutex_);
+        if(source_engine->arbitrator_buffer_.empty() == true){
+            pthread_mutex_unlock(&source_engine->arbitrator_buffer_mutex_);
+            continue;
+        }
         const size_t i = source_engine->arbitrator_buffer_.front();
         source_engine->arbitrator_buffer_.pop();
         pthread_mutex_unlock(&source_engine->arbitrator_buffer_mutex_);
@@ -305,6 +309,10 @@ void* search_engine::KaggleFinanceEngine::FillingThreadFunc(void* _arg) {
     sem_wait(&thread_args->obj_ptr->arbitrator_sem_vec_[thread_args->buffer_subscript]);
     while (thread_args->obj_ptr->currently_parsing_ == true || thread_args->obj_ptr->alpha_buffer_[thread_args->buffer_subscript].empty() == false) {
         pthread_mutex_lock(&thread_args->obj_ptr->alpha_buffer_mutex_[thread_args->buffer_subscript]);
+        if(thread_args->obj_ptr->alpha_buffer_[thread_args->buffer_subscript].empty() == true){
+            pthread_mutex_unlock(&thread_args->obj_ptr->alpha_buffer_mutex_[thread_args->buffer_subscript]);
+            continue;
+        }
         const AlphaBufferArgs word_args = std::move(thread_args->obj_ptr->alpha_buffer_[thread_args->buffer_subscript].front());
         thread_args->obj_ptr->alpha_buffer_[thread_args->buffer_subscript].pop();
         pthread_mutex_unlock(&thread_args->obj_ptr->alpha_buffer_mutex_[thread_args->buffer_subscript]);
