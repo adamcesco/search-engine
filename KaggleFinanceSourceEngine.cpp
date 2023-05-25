@@ -79,18 +79,11 @@ void search_engine::KaggleFinanceEngine::ParseSources(std::string file_path, con
     for (size_t i = 0; i < this->parsing_thread_count_; i++) {
         pthread_join(parsing_thread_array[i], NULL);
     }
-
     this->currently_parsing_ = false;
-
-    while (pthread_tryjoin_np(filling_arbitrator_thread, NULL) != 0) {
-        sem_post(&this->production_state_sem_);
-    }
-
     for (size_t i = 0; i < this->filling_thread_count_; i++) {
-        while (pthread_tryjoin_np(filling_thread_array[i], NULL) != 0) {
-            sem_post(this->arbitrator_sem_vec_.data() + i);
-        }
+        pthread_join(filling_thread_array[i], NULL);
     }
+    pthread_join(filling_arbitrator_thread, NULL);
 }
 
 void search_engine::KaggleFinanceEngine::DisplaySource(std::string file_path, bool just_header) {
@@ -102,6 +95,7 @@ void search_engine::KaggleFinanceEngine::DisplaySource(std::string file_path, bo
     if (just_header == false) {
         std::cout << "Header: " << std::endl;
     }
+
     std::cout << doc["thread"]["title"].GetString() << " || " << doc["thread"]["country"].GetString() << " || " << doc["thread"]["site"].GetString() << std::endl
               << std::endl;
 
@@ -201,6 +195,11 @@ void search_engine::KaggleFinanceEngine::ParseSingleArticle(const size_t file_su
     }
     close(fd);
 
+    if(doc.IsObject() == false){
+        // std::cout << this->files_[file_subscript].c_str() << std::endl;
+        return;
+    }
+
     const char* const delimeters = " \t\v\n\r,.?!;:\"/()";
     size_t uuid = this->unformatted_database_[file_subscript].first = std::move(this->CleanID(doc["uuid"].GetString()));
 
@@ -275,50 +274,44 @@ void* search_engine::KaggleFinanceEngine::ParsingThreadFunc(void* _arg) {
 }
 
 void* search_engine::KaggleFinanceEngine::ArbitratorThreadFunc(void* _arg) {
-    search_engine::KaggleFinanceEngine* const source_engine = (search_engine::KaggleFinanceEngine*)_arg;
-    sem_wait(&source_engine->production_state_sem_);
-    while (source_engine->currently_parsing_ == true || source_engine->arbitrator_buffer_.empty() == false) {
-        pthread_mutex_lock(&source_engine->arbitrator_buffer_mutex_);
-        if(source_engine->arbitrator_buffer_.empty() == true){
-            pthread_mutex_unlock(&source_engine->arbitrator_buffer_mutex_);
+    search_engine::KaggleFinanceEngine* const parse_engine = (search_engine::KaggleFinanceEngine*)_arg;
+    while (parse_engine->currently_parsing_ == true || parse_engine->arbitrator_buffer_.empty() == false) {
+        if (sem_trywait(&parse_engine->production_state_sem_) != 0) {
             continue;
         }
-        const size_t i = source_engine->arbitrator_buffer_.front();
-        source_engine->arbitrator_buffer_.pop();
-        pthread_mutex_unlock(&source_engine->arbitrator_buffer_mutex_);
+        pthread_mutex_lock(&parse_engine->arbitrator_buffer_mutex_);
+        const size_t i = parse_engine->arbitrator_buffer_.front();
+        parse_engine->arbitrator_buffer_.pop();
+        pthread_mutex_unlock(&parse_engine->arbitrator_buffer_mutex_);
 
-        for (auto&& inner_element : source_engine->unformatted_database_[i].second) {
-            size_t word_buffer_subscript = inner_element.first % source_engine->filling_thread_count_;
+        for (auto&& inner_element : parse_engine->unformatted_database_[i].second) {
+            size_t word_buffer_index = inner_element.first % parse_engine->filling_thread_count_;
 
-            pthread_mutex_lock(&source_engine->alpha_buffer_mutex_[word_buffer_subscript]);
-            source_engine->alpha_buffer_[word_buffer_subscript].push(std::move(AlphaBufferArgs{
+            pthread_mutex_lock(&parse_engine->alpha_buffer_mutex_[word_buffer_index]);
+            parse_engine->alpha_buffer_[word_buffer_index].push(std::move(AlphaBufferArgs{
                 .file_subscript = i,
                 .word = std::move(inner_element.first),
                 .count = inner_element.second,
             }));
-            pthread_mutex_unlock(&source_engine->alpha_buffer_mutex_[word_buffer_subscript]);
-            sem_post(&source_engine->arbitrator_sem_vec_[word_buffer_subscript]);
+            pthread_mutex_unlock(&parse_engine->alpha_buffer_mutex_[word_buffer_index]);
+            sem_post(&parse_engine->arbitrator_sem_vec_[word_buffer_index]);
         }
-        sem_wait(&source_engine->production_state_sem_);
     }
     return NULL;
 }
 
 void* search_engine::KaggleFinanceEngine::FillingThreadFunc(void* _arg) {
     FillingThreadArgs* const thread_args = (FillingThreadArgs*)_arg;
-    sem_wait(&thread_args->obj_ptr->arbitrator_sem_vec_[thread_args->buffer_subscript]);
     while (thread_args->obj_ptr->currently_parsing_ == true || thread_args->obj_ptr->alpha_buffer_[thread_args->buffer_subscript].empty() == false) {
-        pthread_mutex_lock(&thread_args->obj_ptr->alpha_buffer_mutex_[thread_args->buffer_subscript]);
-        if(thread_args->obj_ptr->alpha_buffer_[thread_args->buffer_subscript].empty() == true){
-            pthread_mutex_unlock(&thread_args->obj_ptr->alpha_buffer_mutex_[thread_args->buffer_subscript]);
+        if (sem_trywait(&thread_args->obj_ptr->arbitrator_sem_vec_[thread_args->buffer_subscript]) != 0) {
             continue;
         }
+        pthread_mutex_lock(&thread_args->obj_ptr->alpha_buffer_mutex_[thread_args->buffer_subscript]);
         const AlphaBufferArgs word_args = std::move(thread_args->obj_ptr->alpha_buffer_[thread_args->buffer_subscript].front());
         thread_args->obj_ptr->alpha_buffer_[thread_args->buffer_subscript].pop();
         pthread_mutex_unlock(&thread_args->obj_ptr->alpha_buffer_mutex_[thread_args->buffer_subscript]);
 
         thread_args->obj_ptr->database_.value_index[thread_args->buffer_subscript][word_args.word].emplace(thread_args->obj_ptr->unformatted_database_[word_args.file_subscript].first, word_args.count);
-        sem_wait(&thread_args->obj_ptr->arbitrator_sem_vec_[thread_args->buffer_subscript]);
     }
     return NULL;
 }
