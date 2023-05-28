@@ -123,7 +123,7 @@ size_t search_engine::KaggleFinanceEngine::CleanID(const char* const id_token, s
 }
 
 size_t search_engine::KaggleFinanceEngine::CleanValue(const char* const value_token, std::optional<size_t> size) {
-    //todo: optimize this function
+    // todo: optimize this function
     std::string cleaned_token;
     if (size.has_value() == false) {
         size = strlen(value_token);
@@ -144,7 +144,7 @@ size_t search_engine::KaggleFinanceEngine::CleanValue(const char* const value_to
 }
 
 std::string search_engine::KaggleFinanceEngine::CleanMetaData(const char* const metadata_token, std::optional<size_t> size) {
-    //todo: optimize this function
+    // todo: optimize this function
     std::string cleaned_token;
     if (size.has_value() == false) {
         size = strlen(metadata_token);
@@ -179,7 +179,7 @@ void search_engine::KaggleFinanceEngine::ParseSingleArticle(const size_t file_su
         return;
     }
 
-    void* addr = mmap(0, st.st_size, PROT_READ, MAP_SHARED, fd, 0);
+    void* addr = mmap(0, st.st_size, PROT_READ, MAP_SHARED | MAP_NORESERVE, fd, 0);
     if (addr == MAP_FAILED) {
         std::cerr << "Error mapping file at " << this->files_[file_subscript].c_str() << std::endl;
         close(fd);
@@ -187,7 +187,13 @@ void search_engine::KaggleFinanceEngine::ParseSingleArticle(const size_t file_su
     }
 
     rapidjson::Document doc;
-    doc.Parse(static_cast<char*>(addr));
+
+    // parsing causes segfaults because static_cast<char*>(addr) is not null terminated
+    char* sv = new char[st.st_size + 1];
+    sv[0] = '\0';
+    strncat(sv, static_cast<char*>(addr), st.st_size);
+    doc.Parse(sv);
+
     if (munmap(addr, st.st_size) == -1) {
         std::cerr << "Error unmapping file at " << this->files_[file_subscript].c_str() << std::endl;
         close(fd);
@@ -195,15 +201,15 @@ void search_engine::KaggleFinanceEngine::ParseSingleArticle(const size_t file_su
     }
     close(fd);
 
-    if(doc.IsObject() == false){
-        // std::cout << this->files_[file_subscript].c_str() << std::endl;
+    if (doc.IsObject() == false) {
+        std::cerr << "rapidjson::Document is not an object | Error with file at " << this->files_[file_subscript].c_str() << std::endl;
         return;
     }
 
+    pthread_mutex_lock(&this->metadata_mutex_);
     const char* const delimeters = " \t\v\n\r,.?!;:\"/()";
     size_t uuid = this->unformatted_database_[file_subscript].first = std::move(this->CleanID(doc["uuid"].GetString()));
 
-    pthread_mutex_lock(&this->metadata_mutex_);
     this->database_.id_map[uuid] = this->files_[file_subscript].string();
     this->database_.site_index[this->CleanMetaData(doc["thread"]["site"].GetString())].emplace(uuid);
     this->database_.author_index[this->CleanMetaData(doc["author"].GetString())].emplace(uuid);
