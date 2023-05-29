@@ -34,6 +34,7 @@ class KaggleFinanceEngine : public source_util::SourceEngine<size_t, size_t, std
         const std::unordered_set<size_t>* stop_words_ptr;
         size_t start;
         size_t end;
+        size_t file_buffer_subscript;
     };
     struct FillingThreadArgs {
         KaggleFinanceEngine* obj_ptr;
@@ -45,7 +46,7 @@ class KaggleFinanceEngine : public source_util::SourceEngine<size_t, size_t, std
         uint32_t count;
     };
 
-    void ParseSingleArticle(const size_t file_subscript, const std::unordered_set<size_t>* const stop_words_ptr);
+    void ParseSingleArticle(const size_t file_subscript, const std::unordered_set<size_t>* const stop_words_ptr, size_t file_buffer_subscript);
     static void* ParsingThreadFunc(void* _arg);
     static void* ArbitratorThreadFunc(void* _arg);
     static void* FillingThreadFunc(void* _arg);
@@ -63,6 +64,7 @@ class KaggleFinanceEngine : public source_util::SourceEngine<size_t, size_t, std
     pthread_mutex_t arbitrator_buffer_mutex_;
     pthread_mutex_t metadata_mutex_;
     std::vector<pthread_mutex_t> alpha_buffer_mutex_;
+    std::vector<std::pair<char*, size_t>> file_buffer_array_;
 };
 
 }  // namespace search_engine

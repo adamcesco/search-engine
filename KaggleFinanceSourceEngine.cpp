@@ -40,6 +40,10 @@ void search_engine::KaggleFinanceEngine::ParseSources(std::string file_path, con
     this->unformatted_database_ = std::move(std::vector<std::pair<size_t, std::unordered_map<size_t, uint32_t>>>(files_.size()));
     this->database_.value_index = std::move(std::vector<std::unordered_map<size_t, std::unordered_map<size_t, uint32_t>>>(this->filling_thread_count_));
     this->currently_parsing_ = true;
+    this->file_buffer_array_ = std::move(std::vector<std::pair<char*, size_t>>(this->parsing_thread_count_));
+    for (size_t i = 0; i < this->parsing_thread_count_; i++) {
+        this->file_buffer_array_[i] = std::move(std::pair<char*, size_t>(new char[100000], 100000));
+    }
 
     ParsingThreadArgs parsing_arg_array[this->parsing_thread_count_];
     FillingThreadArgs filling_arg_array[this->filling_thread_count_];
@@ -64,6 +68,7 @@ void search_engine::KaggleFinanceEngine::ParseSources(std::string file_path, con
             .stop_words_ptr = stop_words_ptr,
             .start = prev,
             .end = prev + proportion,
+            .file_buffer_subscript = i,
         };
         pthread_create(parsing_thread_array + i, NULL, this->ParsingThreadFunc, (void*)(parsing_arg_array + i));
         prev = prev + proportion;
@@ -73,6 +78,7 @@ void search_engine::KaggleFinanceEngine::ParseSources(std::string file_path, con
         .stop_words_ptr = stop_words_ptr,
         .start = prev,
         .end = files_.size(),
+        .file_buffer_subscript = this->parsing_thread_count_ - 1,
     };
     pthread_create(parsing_thread_array + this->parsing_thread_count_ - 1, NULL, this->ParsingThreadFunc, (void*)(parsing_arg_array + this->parsing_thread_count_ - 1));
 
@@ -84,6 +90,10 @@ void search_engine::KaggleFinanceEngine::ParseSources(std::string file_path, con
         pthread_join(filling_thread_array[i], NULL);
     }
     pthread_join(filling_arbitrator_thread, NULL);
+
+    for (size_t i = 0; i < this->parsing_thread_count_; i++) {
+        delete[] this->file_buffer_array_[i].first;
+    }
 }
 
 void search_engine::KaggleFinanceEngine::DisplaySource(std::string file_path, bool just_header) {
@@ -165,8 +175,8 @@ std::string search_engine::KaggleFinanceEngine::CleanMetaData(const char* const 
     return cleaned_token;
 }
 
-void search_engine::KaggleFinanceEngine::ParseSingleArticle(const size_t file_subscript, const std::unordered_set<size_t>* stop_words_ptr) {
-    int fd = open(this->files_[file_subscript].c_str(), O_RDONLY);
+void search_engine::KaggleFinanceEngine::ParseSingleArticle(const size_t file_subscript, const std::unordered_set<size_t>* stop_words_ptr, size_t file_buffer_subscript) {
+    int fd = open(this->files_[file_subscript].c_str(), O_RDONLY | O_NONBLOCK | O_NOATIME | O_CLOEXEC);
     if (fd == -1) {
         std::cerr << "Error opening file at " << this->files_[file_subscript].c_str() << std::endl;
         return;
@@ -179,26 +189,22 @@ void search_engine::KaggleFinanceEngine::ParseSingleArticle(const size_t file_su
         return;
     }
 
-    void* addr = mmap(0, st.st_size, PROT_READ, MAP_SHARED | MAP_NORESERVE, fd, 0);
-    if (addr == MAP_FAILED) {
-        std::cerr << "Error mapping file at " << this->files_[file_subscript].c_str() << std::endl;
+    if (this->file_buffer_array_[file_buffer_subscript].second <= st.st_size + 1) {
+        delete[] this->file_buffer_array_[file_buffer_subscript].first;
+        this->file_buffer_array_[file_buffer_subscript].first = new char[(st.st_size + 1) * 2];
+        this->file_buffer_array_[file_buffer_subscript].second = (st.st_size + 1) * 2;
+    }
+
+    if (read(fd, this->file_buffer_array_[file_buffer_subscript].first, st.st_size) == -1) {
+        std::cerr << "Error reading file at " << this->files_[file_subscript].c_str() << std::endl;
         close(fd);
         return;
     }
+    this->file_buffer_array_[file_buffer_subscript].first[st.st_size] = '\0';
 
     rapidjson::Document doc;
+    doc.Parse(this->file_buffer_array_[file_buffer_subscript].first);
 
-    // parsing causes segfaults because static_cast<char*>(addr) is not null terminated
-    char* sv = new char[st.st_size + 1];
-    sv[0] = '\0';
-    strncat(sv, static_cast<char*>(addr), st.st_size);
-    doc.Parse(sv);
-
-    if (munmap(addr, st.st_size) == -1) {
-        std::cerr << "Error unmapping file at " << this->files_[file_subscript].c_str() << std::endl;
-        close(fd);
-        return;
-    }
     close(fd);
 
     if (doc.IsObject() == false) {
@@ -206,10 +212,10 @@ void search_engine::KaggleFinanceEngine::ParseSingleArticle(const size_t file_su
         return;
     }
 
-    pthread_mutex_lock(&this->metadata_mutex_);
     const char* const delimeters = " \t\v\n\r,.?!;:\"/()";
     size_t uuid = this->unformatted_database_[file_subscript].first = std::move(this->CleanID(doc["uuid"].GetString()));
 
+    pthread_mutex_lock(&this->metadata_mutex_);
     this->database_.id_map[uuid] = this->files_[file_subscript].string();
     this->database_.site_index[this->CleanMetaData(doc["thread"]["site"].GetString())].emplace(uuid);
     this->database_.author_index[this->CleanMetaData(doc["author"].GetString())].emplace(uuid);
@@ -273,7 +279,7 @@ void search_engine::KaggleFinanceEngine::ParseSingleArticle(const size_t file_su
 void* search_engine::KaggleFinanceEngine::ParsingThreadFunc(void* _arg) {
     ParsingThreadArgs* const thread_args = (ParsingThreadArgs*)_arg;
     for (size_t i = thread_args->start; i < thread_args->end; i++) {
-        thread_args->obj_ptr->ParseSingleArticle(i, thread_args->stop_words_ptr);
+        thread_args->obj_ptr->ParseSingleArticle(i, thread_args->stop_words_ptr, thread_args->file_buffer_subscript);
     }
 
     return NULL;
