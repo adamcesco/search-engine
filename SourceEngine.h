@@ -20,7 +20,7 @@ namespace source_util {
 template <typename T, typename U, typename V = U>
 struct RunTimeDatabase {
     std::unordered_map<T, std::string> id_map;                                        // uuid -> file path
-    std::vector<std::unordered_map<U, std::unordered_map<T, uint32_t>>> value_index;  // word -> list of {uuid -> count}
+    std::vector<std::unordered_map<U, std::unordered_map<T, uint32_t>>> value_index;  // vector of {word -> {uuid -> count}}
     std::unordered_map<U, std::unordered_map<T, uint32_t>> title_index;
     std::unordered_map<V, std::unordered_set<T>> site_index;
     std::unordered_map<V, std::unordered_set<T>> language_index;

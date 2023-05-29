@@ -25,6 +25,18 @@ class SearchEngine {
     std::vector<std::string> HandleQuery(std::string query);
 
    private:
+    struct AppraisedArticle {
+        int64_t text_word_count;
+        int64_t title_word_count;
+        int16_t person_count;
+        int16_t organization_count;
+        int16_t author_count;
+        bool site_flag;
+        bool language_flag;
+        bool location_flag;
+        bool country_flag;
+    };
+
     std::unique_ptr<source_util::SourceEngine<T, U, V>> source_engine_ptr_;
 };
 
@@ -47,7 +59,7 @@ void SearchEngine<T, U, V>::InitCommandLineInterface(std::optional<std::string> 
             std::vector<std::string> results = std::move(this->HandleQuery(input));
             while (true) {
                 size_t result_index = 0;
-                std::cout << "Results: " << std::endl;
+                std::cout << "Results: for " << input << std::endl;
                 for (auto&& result : results) {
                     if (result_index == 10) {
                         break;
@@ -77,7 +89,7 @@ void SearchEngine<T, U, V>::InitCommandLineInterface(std::optional<std::string> 
             std::cout << "Please enter the path to the data you would like to parse: ";
             std::getline(std::cin, input);
             this->source_engine_ptr_->ParseSources(input);
-        } else {
+        } else if (input != "main"){
             std::cout << "Invalid input. Please try again." << std::endl;
         }
 
@@ -89,8 +101,21 @@ void SearchEngine<T, U, V>::InitCommandLineInterface(std::optional<std::string> 
 
 template <typename T, typename U, typename V>
 std::vector<std::string> SearchEngine<T, U, V>::HandleQuery(std::string query) {
-    std::unordered_map<std::string, int32_t> results;
-    std::regex category_pattern(R"(((?:(?:values)|(?:titles)|(?:sites)|(?:langs)|(?:locations)|(?:people)|(?:orgs)|(?:authors)|(?:countries)):[^|]*))");
+    std::unordered_map<std::string, AppraisedArticle> results;
+
+    AppraisedArticle apprArti = AppraisedArticle{
+        .text_word_count = 0,
+        .title_word_count = 0,
+        .person_count = 0,
+        .organization_count = 0,
+        .author_count = 0,
+        .site_flag = false,
+        .language_flag = false,
+        .location_flag = false,
+        .country_flag = false,
+    };
+
+    std::regex category_pattern(R"(((?:(?:values)|(?:title)|(?:sites)|(?:langs)|(?:locations)|(?:people)|(?:orgs)|(?:authors)|(?:countries)):[^|]*))");
     for (std::regex_iterator<std::string::iterator> it(query.begin(), query.end(), category_pattern); it != std::regex_iterator<std::string::iterator>(); ++it) {
         std::string category_match = std::move(it->str());
         int64_t category_hash = category_match[0] + (category_match[1] * 2);
@@ -128,14 +153,42 @@ std::vector<std::string> SearchEngine<T, U, V>::HandleQuery(std::string query) {
                             break;
                         }
                         for (const auto& uuid_count_pair : uuid_count_map_iter->second) {
-                            auto iter = results.emplace(runtime_database->id_map.at(uuid_count_pair.first), 0);
-                            iter.first->second += uuid_count_pair.second;
+                            auto iter = results.emplace(runtime_database->id_map.at(uuid_count_pair.first), AppraisedArticle{
+                                                                                                                .text_word_count = 0,
+                                                                                                                .title_word_count = 0,
+                                                                                                                .person_count = 0,
+                                                                                                                .organization_count = 0,
+                                                                                                                .author_count = 0,
+                                                                                                                .site_flag = false,
+                                                                                                                .language_flag = false,
+                                                                                                                .location_flag = false,
+                                                                                                                .country_flag = false,
+                                                                                                            });
+                            iter.first->second.text_word_count += uuid_count_pair.second;
                         }
                     }
                     break;
                 }
                 case 326: {  // titles case
-
+                    size_t cleaned_metadata = std::move(this->source_engine_ptr_->CleanValue(arg_match.c_str(), arg_match.size()));
+                    auto uuid_count_map_iter = runtime_database->title_index.find(cleaned_metadata);
+                    if (uuid_count_map_iter == runtime_database->title_index.end()) {
+                        break;
+                    }
+                    for (const auto& uuid_count_pair : uuid_count_map_iter->second) {
+                        auto iter = results.emplace(runtime_database->id_map.at(uuid_count_pair.first), AppraisedArticle{
+                                                                                                            .text_word_count = 0,
+                                                                                                            .title_word_count = 0,
+                                                                                                            .person_count = 0,
+                                                                                                            .organization_count = 0,
+                                                                                                            .author_count = 0,
+                                                                                                            .site_flag = false,
+                                                                                                            .language_flag = false,
+                                                                                                            .location_flag = false,
+                                                                                                            .country_flag = false,
+                                                                                                        });
+                        iter.first->second.title_word_count += uuid_count_pair.second;
+                    }
                     break;
                 }
                 case 325: {  // sites case
@@ -145,8 +198,18 @@ std::vector<std::string> SearchEngine<T, U, V>::HandleQuery(std::string query) {
                         break;
                     }
                     for (const auto& uuid : uuid_set_iter->second) {
-                        auto iter = results.emplace(runtime_database->id_map.at(uuid), 0);
-                        iter.first->second++;
+                        auto iter = results.emplace(runtime_database->id_map.at(uuid), AppraisedArticle{
+                                                                                           .text_word_count = 0,
+                                                                                           .title_word_count = 0,
+                                                                                           .person_count = 0,
+                                                                                           .organization_count = 0,
+                                                                                           .author_count = 0,
+                                                                                           .site_flag = false,
+                                                                                           .language_flag = false,
+                                                                                           .location_flag = false,
+                                                                                           .country_flag = false,
+                                                                                       });
+                        iter.first->second.site_flag = true;
                     }
                     break;
                 }
@@ -157,8 +220,18 @@ std::vector<std::string> SearchEngine<T, U, V>::HandleQuery(std::string query) {
                         break;
                     }
                     for (const auto& uuid : uuid_set_iter->second) {
-                        auto iter = results.emplace(runtime_database->id_map.at(uuid), 0);
-                        iter.first->second++;
+                        auto iter = results.emplace(runtime_database->id_map.at(uuid), AppraisedArticle{
+                                                                                           .text_word_count = 0,
+                                                                                           .title_word_count = 0,
+                                                                                           .person_count = 0,
+                                                                                           .organization_count = 0,
+                                                                                           .author_count = 0,
+                                                                                           .site_flag = false,
+                                                                                           .language_flag = false,
+                                                                                           .location_flag = false,
+                                                                                           .country_flag = false,
+                                                                                       });
+                        iter.first->second.language_flag = true;
                     }
                     break;
                 }
@@ -169,8 +242,18 @@ std::vector<std::string> SearchEngine<T, U, V>::HandleQuery(std::string query) {
                         break;
                     }
                     for (const auto& uuid : uuid_set_iter->second) {
-                        auto iter = results.emplace(runtime_database->id_map.at(uuid), 0);
-                        iter.first->second++;
+                        auto iter = results.emplace(runtime_database->id_map.at(uuid), AppraisedArticle{
+                                                                                           .text_word_count = 0,
+                                                                                           .title_word_count = 0,
+                                                                                           .person_count = 0,
+                                                                                           .organization_count = 0,
+                                                                                           .author_count = 0,
+                                                                                           .site_flag = false,
+                                                                                           .language_flag = false,
+                                                                                           .location_flag = false,
+                                                                                           .country_flag = false,
+                                                                                       });
+                        iter.first->second.location_flag = true;
                     }
                     break;
                 }
@@ -181,8 +264,18 @@ std::vector<std::string> SearchEngine<T, U, V>::HandleQuery(std::string query) {
                         break;
                     }
                     for (const auto& uuid : uuid_set_iter->second) {
-                        auto iter = results.emplace(runtime_database->id_map.at(uuid), 0);
-                        iter.first->second++;
+                        auto iter = results.emplace(runtime_database->id_map.at(uuid), AppraisedArticle{
+                                                                                           .text_word_count = 0,
+                                                                                           .title_word_count = 0,
+                                                                                           .person_count = 0,
+                                                                                           .organization_count = 0,
+                                                                                           .author_count = 0,
+                                                                                           .site_flag = false,
+                                                                                           .language_flag = false,
+                                                                                           .location_flag = false,
+                                                                                           .country_flag = false,
+                                                                                       });
+                        iter.first->second.person_count++;
                     }
                     break;
                 }
@@ -193,8 +286,18 @@ std::vector<std::string> SearchEngine<T, U, V>::HandleQuery(std::string query) {
                         break;
                     }
                     for (const auto& uuid : uuid_set_iter->second) {
-                        auto iter = results.emplace(runtime_database->id_map.at(uuid), 0);
-                        iter.first->second++;
+                        auto iter = results.emplace(runtime_database->id_map.at(uuid), AppraisedArticle{
+                                                                                           .text_word_count = 0,
+                                                                                           .title_word_count = 0,
+                                                                                           .person_count = 0,
+                                                                                           .organization_count = 0,
+                                                                                           .author_count = 0,
+                                                                                           .site_flag = false,
+                                                                                           .language_flag = false,
+                                                                                           .location_flag = false,
+                                                                                           .country_flag = false,
+                                                                                       });
+                        iter.first->second.organization_count++;
                     }
                     break;
                 }
@@ -205,8 +308,18 @@ std::vector<std::string> SearchEngine<T, U, V>::HandleQuery(std::string query) {
                         break;
                     }
                     for (const auto& uuid : uuid_set_iter->second) {
-                        auto iter = results.emplace(runtime_database->id_map.at(uuid), 0);
-                        iter.first->second++;
+                        auto iter = results.emplace(runtime_database->id_map.at(uuid), AppraisedArticle{
+                                                                                           .text_word_count = 0,
+                                                                                           .title_word_count = 0,
+                                                                                           .person_count = 0,
+                                                                                           .organization_count = 0,
+                                                                                           .author_count = 0,
+                                                                                           .site_flag = false,
+                                                                                           .language_flag = false,
+                                                                                           .location_flag = false,
+                                                                                           .country_flag = false,
+                                                                                       });
+                        iter.first->second.author_count++;
                     }
                     break;
                 }
@@ -217,8 +330,18 @@ std::vector<std::string> SearchEngine<T, U, V>::HandleQuery(std::string query) {
                         break;
                     }
                     for (const auto& uuid : uuid_set_iter->second) {
-                        auto iter = results.emplace(runtime_database->id_map.at(uuid), 0);
-                        iter.first->second++;
+                        auto iter = results.emplace(runtime_database->id_map.at(uuid), AppraisedArticle{
+                                                                                           .text_word_count = 0,
+                                                                                           .title_word_count = 0,
+                                                                                           .person_count = 0,
+                                                                                           .organization_count = 0,
+                                                                                           .author_count = 0,
+                                                                                           .site_flag = false,
+                                                                                           .language_flag = false,
+                                                                                           .location_flag = false,
+                                                                                           .country_flag = false,
+                                                                                       });
+                        iter.first->second.country_flag = true;
                     }
                     break;
                 }
@@ -234,7 +357,38 @@ std::vector<std::string> SearchEngine<T, U, V>::HandleQuery(std::string query) {
     }
     // sort contents of results_vec by the int value of the pair in results
     std::sort(results_vec.begin(), results_vec.end(), [&results](const std::string& a, const std::string& b) {
-        return results.at(a) > results.at(b);
+        // prioritize language, then site, then other metadata flags country and location. 
+        // finally, prioritize title word count, then organization count, then person count, then author count, and then the text word count
+        
+        auto& result_a = results.at(a);
+        auto& result_b = results.at(b);
+        
+        if (result_a.language_flag != result_b.language_flag) {
+            return result_a.language_flag;
+        }
+        if (result_a.site_flag != result_b.site_flag) {
+            return result_a.site_flag;
+        }
+        if (result_a.country_flag != result_b.country_flag) {
+            return result_a.country_flag;
+        }
+        if (result_a.location_flag != result_b.location_flag) {
+            return result_a.location_flag;
+        }
+
+        if (result_a.title_word_count != result_b.title_word_count) {
+            return result_a.title_word_count > result_b.title_word_count;
+        }
+        if (result_a.organization_count != result_b.organization_count) {
+            return result_a.organization_count > result_b.organization_count;
+        }
+        if (result_a.person_count != result_b.person_count) {
+            return result_a.person_count > result_b.person_count;
+        }
+        if (result_a.author_count != result_b.author_count) {
+            return result_a.author_count > result_b.author_count;
+        }
+        return result_a.text_word_count > result_b.text_word_count;
     });
     return results_vec;
 }
