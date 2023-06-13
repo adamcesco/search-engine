@@ -133,7 +133,6 @@ size_t search_engine::KaggleFinanceEngine::CleanID(const char* const id_token, s
 }
 
 size_t search_engine::KaggleFinanceEngine::CleanValue(const char* const value_token, std::optional<size_t> size) {
-    // todo: optimize this function
     std::string cleaned_token;
     if (size.has_value() == false) {
         size = strlen(value_token);
@@ -154,7 +153,6 @@ size_t search_engine::KaggleFinanceEngine::CleanValue(const char* const value_to
 }
 
 std::string search_engine::KaggleFinanceEngine::CleanMetaData(const char* const metadata_token, std::optional<size_t> size) {
-    // todo: optimize this function
     std::string cleaned_token;
     if (size.has_value() == false) {
         size = strlen(metadata_token);

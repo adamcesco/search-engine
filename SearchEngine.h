@@ -89,7 +89,7 @@ void SearchEngine<T, U, V>::InitCommandLineInterface(std::optional<std::string> 
             std::cout << "Please enter the path to the data you would like to parse: ";
             std::getline(std::cin, input);
             this->source_engine_ptr_->ParseSources(input);
-        } else if (input != "main"){
+        } else if (input != "main") {
             std::cout << "Invalid input. Please try again." << std::endl;
         }
 
@@ -357,12 +357,12 @@ std::vector<std::string> SearchEngine<T, U, V>::HandleQuery(std::string query) {
     }
     // sort contents of results_vec by the int value of the pair in results
     std::sort(results_vec.begin(), results_vec.end(), [&results](const std::string& a, const std::string& b) {
-        // prioritize language, then site, then other metadata flags country and location. 
+        // prioritize language, then site, then other metadata flags country and location.
         // finally, prioritize title word count, then organization count, then person count, then author count, and then the text word count
-        
+
         auto& result_a = results.at(a);
         auto& result_b = results.at(b);
-        
+
         if (result_a.language_flag != result_b.language_flag) {
             return result_a.language_flag;
         }
