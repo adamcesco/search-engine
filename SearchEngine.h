@@ -150,7 +150,7 @@ std::vector<std::string> SearchEngine<T, U, V>::HandleQuery(std::string query) {
                     for (const auto& value_map : value_index_vec) {
                         auto uuid_count_map_iter = value_map.find(cleaned_metadata);
                         if (uuid_count_map_iter == value_map.end()) {
-                            break;
+                            continue;
                         }
                         for (const auto& uuid_count_pair : uuid_count_map_iter->second) {
                             auto iter = results.emplace(runtime_database->id_map.at(uuid_count_pair.first), AppraisedArticle{

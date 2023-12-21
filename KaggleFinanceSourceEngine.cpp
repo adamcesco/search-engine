@@ -158,7 +158,6 @@ std::string search_engine::KaggleFinanceEngine::CleanMetaData(const char* const 
         size = strlen(metadata_token);
     }
     cleaned_token.resize(size.value());
-    // check for unicode characters and lowercase token
     for (size_t i = 0, j = 0; i < size; i++, j++) {
         if (metadata_token[i] < 0 || metadata_token[i] > 127) {
             return {};
@@ -244,8 +243,7 @@ void search_engine::KaggleFinanceEngine::ParseSingleArticle(const size_t file_su
             title_token = strtok(NULL, delimeters);
             continue;
         }
-        auto iter = this->database_.title_index[cleaned_title_token].emplace(uuid, 0);
-        iter.first->second++;
+        this->database_.title_index[cleaned_title_token].emplace(uuid, 0).first->second++;
 
         title_token = strtok(NULL, delimeters);
     }
