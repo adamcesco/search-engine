@@ -103,18 +103,6 @@ template <typename T, typename U, typename V>
 std::vector<std::string> SearchEngine<T, U, V>::HandleQuery(std::string query) {
     std::unordered_map<std::string, AppraisedArticle> results;
 
-    AppraisedArticle apprArti = AppraisedArticle{
-        .text_word_count = 0,
-        .title_word_count = 0,
-        .person_count = 0,
-        .organization_count = 0,
-        .author_count = 0,
-        .site_flag = false,
-        .language_flag = false,
-        .location_flag = false,
-        .country_flag = false,
-    };
-
     std::regex category_pattern(R"(((?:(?:values)|(?:title)|(?:sites)|(?:langs)|(?:locations)|(?:people)|(?:orgs)|(?:authors)|(?:countries)):[^|]*))");
     for (std::regex_iterator<std::string::iterator> it(query.begin(), query.end(), category_pattern); it != std::regex_iterator<std::string::iterator>(); ++it) {
         std::string category_match = std::move(it->str());
