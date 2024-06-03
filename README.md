@@ -3,7 +3,7 @@
 ## Solution Details
 
 - Uses the POSIX library to optimize file parsing speeds. This allowed for the implementation of load balancing, and it allows users to insert a custom amount of threads to be used for parsing files and filling the run-time database.
-- Thoruhgout the implementation of this solution, we follow [Google's C++ Coding & Testing Standards](https://google.github.io/styleguide/cppguide.html).
+- Throughout the implementation of this solution, we follow [Google's C++ Coding & Testing Standards](https://google.github.io/styleguide/cppguide.html).
 - This project was implemented to explore how multithreading is implemented and how lower-level C++ tactics affect the complexity and optimization of a project. We implemented things like the "produce-consumer" paradigm and move operation logic. This has expanded our knowledge on lower-level C++ and how to use multithreading in practice.
 
 ## Instructions for Demo Use
